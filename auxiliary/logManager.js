@@ -3,6 +3,7 @@ var util = require('util');
 
 const LOG_LEVELS = { 'DEBUG': 1, 'WARNING': 2, 'ERROR': 3, 'FATAL': 4, 'OFF':5 };
 var CONSOLE_LOG_LEVEL = LOG_LEVELS.DEBUG; //Console log from a defined level above
+const MAX_MSG_LENGTH = 300
 
 var prefix = (new Date().toISOString().replace(/:/g, '')).replace(/\./g, '');
 fs.mkdirSync('log/' + prefix);
@@ -10,6 +11,9 @@ fs.mkdirSync('log/' + prefix);
 var system_log = fs.createWriteStream('log/' + prefix + '/worker.log', { flags: 'w' });
 
 function writeConsole(type, value, location) {
+  if(value.length > MAX_MSG_LENGTH){
+    value = 'OVERSIZED MESSAGE'
+  }
   var location = '[' + location +']'+ ' '.repeat(15 - location.length); 
   var typeFinal = type + ' '.repeat(9 - type.length); 
   if (LOG_LEVELS[type] < 2) {
@@ -30,7 +34,7 @@ var logSystem = function (type, value, location) {
     writeConsole(type, value, location)
   }
   if (LOG_LEVELS[type] == 4) {
-    //throw new Error(value);
+    throw new Error(value);
   }
 }
 
