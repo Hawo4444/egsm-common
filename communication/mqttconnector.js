@@ -21,19 +21,20 @@ function MqttBroker(hostname, port, userName, userPassword, clientId) {
             })
             .on('message', function (topic, message) {
                 LOG.logWorker('DEBUG', `New message: [${hostname}:${port}]::[${topic}]->[${message}]`, module.id)
-                ON_RECEIVED(hostname, port, topic, message)
+                ON_RECEIVED.forEach(element => {
+                    element(hostname, port, topic, message)
+                });
             })
     }
 }
 
 let BROKERS = new Map(); // {IP, PORT} -> BROKER_DETAILS
-var ON_RECEIVED = undefined; //Function reference called when a new message available from a topic
-
+var ON_RECEIVED = []; //Array of function references called when a new message available from a topic
 module.exports = {
 
     init: function (onReceivedFunction) {
         LOG.logWorker('DEBUG', `init called`, module.id)
-        ON_RECEIVED = onReceivedFunction
+        ON_RECEIVED.push(onReceivedFunction)
     },
 
     createConnection: function (hostname, port, username, userpassword, clientid) {
@@ -68,7 +69,7 @@ module.exports = {
 
     subscribeTopic: function (hostname, port, topic) {
         LOG.logWorker('DEBUG', `Subscribing to: [${hostname}]:[${port}] -> [${topic}]`, module.id)
-        if (!ON_RECEIVED) {
+        if (ON_RECEIVED.length < 1) {
             LOG.logWorker('WARNING', `ON_RECEIVED function not defined yet, use init() function!`, module.id)
         }
         if (!BROKERS.has([hostname, port].join(":"))) {
