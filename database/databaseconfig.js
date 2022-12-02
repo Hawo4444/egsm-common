@@ -1,7 +1,7 @@
 var DYNAMO = require('../database/dynamoconnector')
 
 const DATABASE_HOST = 'localhost'
-const DATABASE_PORT = 8000
+const DATABASE_PORT = '8000'
 const DATABASE_REGION = 'local'
 const DATABASE_ACCESS_KEY_ID = 'fakeMyKeyId'
 const DATABASE_SECRET_ACCESS_KEY = 'fakeSecretAccessKey'
@@ -19,7 +19,7 @@ var tables = [
 ]
 
 function initDatabaseConnection() {
-    DYNAMO.initDynamo(DATABASE_ACCESS_KEY_ID, DATABASE_SECRET_ACCESS_KEY, DATABASE_REGION, 'http://' + DATABASE_HOST + ':' + toString(DATABASE_PORT))
+    DYNAMO.initDynamo(DATABASE_ACCESS_KEY_ID, DATABASE_SECRET_ACCESS_KEY, DATABASE_REGION, 'http://' + DATABASE_HOST + ':' + DATABASE_PORT)
 }
 
 async function initTables() {

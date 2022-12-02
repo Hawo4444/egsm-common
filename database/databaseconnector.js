@@ -15,30 +15,38 @@ async function writeNewArtifactDefinition(artifactType, artifactId, stakeholders
     attributes.push({ name: 'TIMING_FAULTY_RATES', type: 'M', value: {} })
     attributes.push({ name: 'HOST', type: 'S', value: host })
     attributes.push({ name: 'PORT', type: 'N', value: port.toString() })
-    const result = await DYNAMO.writeItem('ARTIFACT_DEFINITION', pk, sk, attributes)
-    return result
+    try{
+        const result = await DYNAMO.writeItem('ARTIFACT_DEFINITION', pk, sk, attributes)
+        return result
+    }catch(error){
+        return 'error'
+    }
 }
 
-//TODO
-/*async function readArtifactDefinition(artifactType, artifactId) {
+async function readArtifactDefinition(artifactType, artifactId) {
+    if(artifactType == undefined || artifactId == undefined || artifactType.length == 0 || artifactId.length == 0){
+        return undefined
+    }
     var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
     var sk = { name: 'ARTIFACT_ID', value: artifactId }
     const data = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk)
     var final = undefined
-    if (!data?.Item) {
+    if (data.Item?.ARTIFACT_TYPE != undefined) {
         final = {
             artifacttype: data.Item?.ARTIFACT_TYPE.S,
             artifactid: data.Item?.ARTIFACT_ID.S,
-            stakeholders: data.Item?.STAKEHOLDERS.L,
-            attachedto: data.Item?.ATTACHED_TO.L,
-            //faultyrates: data.Item?.FAULTY_RATES,
-            //timingfaultyrates: data.Item?.TIMING_FAULTY_RATES,
-            host: data.Item?.HOST,
-            port: data.Item?.PORT,
+            stakeholders: data.Item?.STAKEHOLDERS.SS,
+            //attachedto: data.Item?.ATTACHED_TO.L,
+            faultyrates: data.Item?.FAULTY_RATES.M,
+            timingfaultyrates: data.Item?.TIMING_FAULTY_RATES.M,
+            host: data.Item?.HOST.S,
+            port: data.Item?.PORT.N,
         }
     }
+    return final
 }
 
+/*
 async function writeArtifactAttachment(artifactType, artifactId, processid) {
 
 }
@@ -636,6 +644,7 @@ function removeProcessFromProcessGroup(groupname, processName) {
 module.exports = {
     writeNewArtifactDefinition: writeNewArtifactDefinition,
     isArtifactDefined: isArtifactDefined,
+    readArtifactDefinition:readArtifactDefinition,
     getArtifactStakeholders: getArtifactStakeholders,
     addNewFaultyRateWindow: addNewFaultyRateWindow,
     getArtifactFaultyRateLatest: getArtifactFaultyRateLatest,

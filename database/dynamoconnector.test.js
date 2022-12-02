@@ -4,7 +4,7 @@ var LOG = require('../auxiliary/LogManager')
 var DYNAMO = require('./dynamoconnector')
 
 beforeAll(() => {
-    DYNAMO.initDynamo('fakeMyKeyId', 'fakeSecretAccessKey', 'local', 'http://localhost:9000')
+    DYNAMO.initDynamo('fakeMyKeyId', 'fakeSecretAccessKey', 'local', 'http://localhost:8000')
 });
 
 beforeEach(async () => {

@@ -33,7 +33,7 @@ async function deleteTables() {
 }
 
 beforeAll(() => {
-    DYNAMO.initDynamo('fakeMyKeyId', 'fakeSecretAccessKey', 'local', 'http://localhost:9000')
+    DYNAMO.initDynamo('fakeMyKeyId', 'fakeSecretAccessKey', 'local', 'http://localhost:8000')
 });
 
 beforeEach(async () => {
@@ -65,6 +65,34 @@ test('[writeNewArtifactDefinition] [WRITE AND READ]', async () => {
             PORT: { N: '1883' }
         }
     }
+    expect(data).toEqual(expected)
+})
+
+test('[writeNewArtifactDefinition] [readArtifactDefinition]', async () => {
+    await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
+
+    var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
+    var sk = { name: 'ARTIFACT_ID', value: 'instance-1' }
+    const data = await DB.readArtifactDefinition('truck', 'instance-1')
+    var expected = {
+        artifacttype: 'truck',
+        artifactid: 'instance-1',
+        //attachedto: [],
+        faultyrates: {},
+        timingfaultyrates: {},
+        stakeholders: ['Best Truck Company', 'Maintainer Company'],
+        host: 'localhost',
+        port: '1883'
+
+    }
+    expect(data).toEqual(expected)
+})
+
+test('[writeNewArtifactDefinition] [readArtifactDefinition] [not found]', async () => {
+    var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
+    var sk = { name: 'ARTIFACT_ID', value: 'instance-1' }
+    const data = await DB.readArtifactDefinition('truck', 'instance-1')
+    var expected = undefined
     expect(data).toEqual(expected)
 })
 
