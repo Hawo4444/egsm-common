@@ -973,3 +973,37 @@ test('[writeStageEvent][WRITE AND READ]', async () => {
     }
     expect(data).toEqual(expected)
 })
+
+
+test('[readAllStakeholder][WRITE AND READ]', async () => {
+    await DB.writeNewStakeholder('company1', 'mqtt')
+    await DB.writeNewStakeholder('company2', 'mqtt')
+    await DB.writeNewStakeholder('company3', 'mqtt')
+    await DB.writeNewStakeholder('company4', 'mqtt')
+
+    data = await DB.readAllStakeholder()
+    var expected = [{ id: 'company1', notificationdetails: 'mqtt' },
+    { id: 'company2', notificationdetails: 'mqtt' },
+    { id: 'company3', notificationdetails: 'mqtt' },
+    { id: 'company4', notificationdetails: 'mqtt' }
+    ]
+    data.sort((a, b) => {
+        if (a.id < b.id) {
+            return -1;
+        }
+        if (a.id > b.id) {
+            return 1;
+        }
+        return 0;
+    })
+    expected.sort((a, b) => {
+        if (a.id < b.id) {
+            return -1;
+        }
+        if (a.id > b.id) {
+            return 1;
+        }
+        return 0;
+    })
+    expect(data).toEqual(expected)
+})

@@ -460,6 +460,25 @@ async function query(tablename, keyconditionexpression, expressionattributevalue
     return accumulated;
 }
 
+async function scanTable(tablename) {
+    verifyInit()
+    let result, ExclusiveStartKey;
+    var accumulated = []
+    do {
+        var params = {
+            TableName: tablename,
+            ExclusiveStartKey,
+            Limit: 1,
+        }
+        result = await DDB.scan(params).promise();
+
+        ExclusiveStartKey = result.LastEvaluatedKey;
+        accumulated = [...accumulated, ...result.Items];
+    } while (result.LastEvaluatedKey);
+
+    return accumulated;
+}
+
 module.exports = {
     initDynamo: initDynamo,
     initTable: initTable,
@@ -470,5 +489,6 @@ module.exports = {
     initNestedList: initNestedList,
     appendNestedListItem: appendNestedListItem,
     deleteItem: deleteItem,
-    query: query
+    query: query,
+    scanTable: scanTable
 }

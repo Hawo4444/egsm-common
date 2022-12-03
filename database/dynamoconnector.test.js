@@ -516,6 +516,30 @@ test('[2 KEYS] [SINGLE ATTRIBUTE] [WRITE AND DELETE AND READ] [LIST ATTRIBUTE] [
     expect(data).toEqual(expected)
 })
 
+test('[2 KEYS] [WRITE ITEMS] [SCAN TABLE] [SUCCESSFUL]', async () => {
+
+    var pk = { name: 'KEY_1', value: 'HASK_KEY_1' }
+    var sk = { name: 'KEY_2', value: 'RANGE_KEY_1' }
+    var attributes = [{ name: 'ATTRIBUTE_1', type: 'L', value: [{ S: 'data_1' }, { N: '456' }] }]
+    await DYNAMO.writeItem('TEST_TABLE_1', pk, sk, attributes)
+
+    sk = { name: 'KEY_2', value: 'RANGE_KEY_2' }
+    attributes = [{ name: 'ATTRIBUTE_1', type: 'L', value: [{ S: 'data_2' }, { N: '456' }] }]
+    await DYNAMO.writeItem('TEST_TABLE_1', pk, sk, attributes)
+
+    sk = { name: 'KEY_2', value: 'RANGE_KEY_3' }
+    attributes = [{ name: 'ATTRIBUTE_1', type: 'L', value: [{ S: 'data_3' }, { N: '456' }] }]
+    await DYNAMO.writeItem('TEST_TABLE_1', pk, sk, attributes)
+
+
+    data = await DYNAMO.scanTable('TEST_TABLE_1')
+    var expected = 
+    [{ "ATTRIBUTE_1": { "L": [{ "S": "data_1" }, { "N": "456" }] }, "KEY_1": { "S": "HASK_KEY_1" }, "KEY_2": { "S": "RANGE_KEY_1" } }, 
+    { "ATTRIBUTE_1": { "L": [{ "S": "data_2" }, { "N": "456" }] }, "KEY_1": { "S": "HASK_KEY_1" }, "KEY_2": { "S": "RANGE_KEY_2" } }, 
+    { "ATTRIBUTE_1": { "L": [{ "S": "data_3" }, { "N": "456" }] }, "KEY_1": { "S": "HASK_KEY_1" }, "KEY_2": { "S": "RANGE_KEY_3" } }]
+    expect(data).toEqual(expected)
+})
+
 
 
 /*test('[2 KEYS] [MULTIPLE ATTRIBUTES] [WRITE AND DELETE AND READ] [NUMBER ATTRIBUTES] [WITH CONDITION] [SUCCESSFUL]', async () => {

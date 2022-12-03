@@ -1,7 +1,7 @@
 var DYNAMO = require('../database/dynamoconnector')
 
 const DATABASE_HOST = 'localhost'
-const DATABASE_PORT = '8000'
+const DATABASE_PORT = '9000'
 const DATABASE_REGION = 'local'
 const DATABASE_ACCESS_KEY_ID = 'fakeMyKeyId'
 const DATABASE_SECRET_ACCESS_KEY = 'fakeSecretAccessKey'
@@ -24,14 +24,14 @@ function initDatabaseConnection() {
 
 async function initTables() {
     var promises = []
-    tables.forEach(element => {
+    /*tables.forEach(element => {
         try {
             promises.push(DYNAMO.deleteTable(element.name))
             console.log(element.name + ' deleted')
         } catch (error) {
             console.error(element.name + ' could not be deleted')
         }
-    });
+    });*/
 
     await Promise.all(promises)
     promises = []

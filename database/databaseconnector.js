@@ -438,6 +438,20 @@ async function readStakeholder(stakeholderid) {
     return final
 }
 
+async function readAllStakeholder(){
+    const data = await DYNAMO.scanTable('STAKEHOLDERS')
+    var final = []
+    if (data) {
+        data.forEach(element => {
+            final.push({
+                id: element['STAKEHOLDER_ID']['S'],
+                notificationdetails: element['NOTIFICATION_DETAILS']['S'],
+            })
+        });
+    }
+    return final
+}
+
 //PROCESS GROUP operations
 async function writeNewProcessGroup(processgroupid, memberprocesses, grouptype, stakeholderrule, processtyperule) {
     var pk = { name: 'NAME', value: processgroupid }
@@ -677,4 +691,5 @@ module.exports = {
     readProcessGroupByRules: readProcessGroupByRules,
 
     writeStageEvent: writeStageEvent,
+    readAllStakeholder:readAllStakeholder,
 }
