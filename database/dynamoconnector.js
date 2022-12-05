@@ -87,7 +87,6 @@ async function initTable(tablename, pk, sk, globalsecondaryIndex) {
             IndexName: globalsecondaryIndex.indexname,
             KeySchema: [
                 { AttributeName: globalsecondaryIndex.pk.name, KeyType: "HASH" },  //Partition key
-                //{ AttributeName: "tm", KeyType: "RANGE" }  //Sort key
             ],
             Projection: {
                 ProjectionType: 'ALL'
@@ -297,6 +296,89 @@ async function updateItem(tablename, pk, sk, attr) {
     })
 }
 
+//TODO: unittest coverage
+/**
+ * Writes (or overwrites) and element in an already existing map
+ * @param {*} tablename 
+ * @param {*} pk 
+ * @param {*} sk 
+ * @param {*} mapattributeelement 
+ * @param {*} newitem 
+ * @returns Returns the updated entry
+ */
+function setMapElement(tablename, pk, sk, mapattributeelement, newitem){
+    verifyInit()
+    if (!sk) {
+        var sk = { value: '' }
+    }
+    var key = {}
+    key[pk.name] = { 'S': pk.value }
+    if (sk && sk.value != '') {
+        key[sk.name] = { 'S': sk.value }
+    }
+
+    var updateexpression = `SET ${mapattributeelement} = :newdata`
+    var expressionattributevalues = { ":newdata": newitem }
+
+    var params = {
+        ExpressionAttributeValues: expressionattributevalues,
+        Key: key,
+        ReturnValues: "ALL_NEW",
+        TableName: tablename,
+        UpdateExpression: updateexpression//"SET #0 = :0"
+    };
+    return new Promise((resolve, reject) => {
+        DDB.updateItem(params, function (err, data) {
+            if (err) {
+                reject(err)
+            }
+            else {
+                resolve(data)
+            }
+        })
+    })
+}
+
+//TODO: unittest coverage
+/**
+ * Removes and element from a map
+ * @param {*} tablename 
+ * @param {*} pk 
+ * @param {*} sk 
+ * @param {*} mapattributeelement 
+ * @returns Returns the updated entry
+ */
+function removeMapElement(tablename, pk, sk, mapattributeelement){
+    verifyInit()
+    if (!sk) {
+        var sk = { value: '' }
+    }
+    var key = {}
+    key[pk.name] = { 'S': pk.value }
+    if (sk && sk.value != '') {
+        key[sk.name] = { 'S': sk.value }
+    }
+
+    var updateexpression = `REMOVE ${mapattributeelement}`
+
+    var params = {
+        Key: key,
+        ReturnValues: "ALL_NEW",
+        TableName: tablename,
+        UpdateExpression: updateexpression//"SET #0 = :0"
+    };
+    return new Promise((resolve, reject) => {
+        DDB.updateItem(params, function (err, data) {
+            if (err) {
+                reject(err)
+            }
+            else {
+                resolve(data)
+            }
+        })
+    })
+}
+
 /**
  * Creates an empty list in an already existing field which type is MAP
  * @param {string} tablename 
@@ -365,6 +447,51 @@ async function appendNestedListItem(tablename, pk, sk, listattribute, newelement
 
     var params = {
         ExpressionAttributeValues: expressionattributevalues,
+        Key: key,
+        ReturnValues: "ALL_NEW",
+        TableName: tablename,
+        UpdateExpression: updateexpression//"SET #0 = :0"
+    };
+    return new Promise((resolve, reject) => {
+        DDB.updateItem(params, function (err, data) {
+            if (err) {
+                reject(err)
+            }
+            else {
+                resolve(data)
+            }
+        })
+    })
+}
+
+/**
+ * Removes an element from a nested list
+ * @param {*} tablename 
+ * @param {*} pk 
+ * @param {*} sk 
+ * @param {*} listattributeelement 
+ * @returns 
+ */
+async function deleteNestedListItem(tablename, pk, sk, listattributeelement) {
+    verifyInit()
+    if (!sk) {
+        var sk = { value: '' }
+    }
+    var key = {}
+    key[pk.name] = { 'S': pk.value }
+    if (sk && sk.value != '') {
+        key[sk.name] = { 'S': sk.value }
+    }
+    var updateexpression = `REMOVE ${listattributeelement}`
+    /*var expressionattributevalues = { ":newdata": { L: [] } }
+    for (i in newelements) {
+        var buff = {}
+        buff[newelements[i].type] = newelements[i].value
+        expressionattributevalues[':newdata']['L'].push(buff)
+    }*/
+
+    var params = {
+        //ExpressionAttributeValues: expressionattributevalues,
         Key: key,
         ReturnValues: "ALL_NEW",
         TableName: tablename,
@@ -486,8 +613,11 @@ module.exports = {
     writeItem: writeItem,
     readItem: readItem,
     updateItem: updateItem,
+    setMapElement:setMapElement,
+    removeMapElement:removeMapElement,
     initNestedList: initNestedList,
     appendNestedListItem: appendNestedListItem,
+    deleteNestedListItem:deleteNestedListItem,
     deleteItem: deleteItem,
     query: query,
     scanTable: scanTable

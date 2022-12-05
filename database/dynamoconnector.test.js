@@ -485,6 +485,82 @@ test('[2 KEYS] [APPEND NESTED LIST] [WRITE READ WRITE READ] [SUCCESSFUL]', async
     expect(data).toEqual(expected)
 })
 
+test('[2 KEYS] [APPEND NESTED LIST] [deleteNestedListItem] [WRITE READ WRITE READ] [SUCCESSFUL]', async () => {
+
+    var pk = { name: 'KEY_1', value: 'HASK_KEY_1' }
+    var sk = { name: 'KEY_2', value: 'RANGE_KEY_1' }
+    var attributes = []
+    attributes.push({ name: 'ATTRIBUTE_1', type: 'M', value: {} })
+    await DYNAMO.writeItem('TEST_TABLE_1', pk, sk, attributes)
+
+    //Create empty nested list
+    await DYNAMO.initNestedList('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1.the_list_attribute')
+    var data = await DYNAMO.readItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1')
+    var expected = {
+        Item: {
+            ATTRIBUTE_1: {
+                M: { the_list_attribute: { L: [] } }
+            }
+        }
+    }
+    expect(data).toEqual(expected)
+
+
+    //Add the first element to the list
+    var item = { type: 'S', value: 'data1' }
+    await DYNAMO.appendNestedListItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1.the_list_attribute', [item])
+
+    data = await DYNAMO.readItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1')
+    expected = {
+        Item: {
+            ATTRIBUTE_1: {
+                M: { the_list_attribute: { L: [{ S: 'data1' }] } }
+            }
+        }
+    }
+    expect(data).toEqual(expected)
+
+    //Add the second and third element to the list
+
+    var item2 = [{ type: 'S', value: 'data2' }, { type: 'N', value: '6656.55' }]
+    await DYNAMO.appendNestedListItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1.the_list_attribute', item2)
+
+    data = await DYNAMO.readItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1')
+    expected = {
+        Item: {
+            ATTRIBUTE_1: {
+                M: { the_list_attribute: { L: [{ S: 'data1' }, { S: 'data2' }, { N: '6656.55' }] } }
+            }
+        }
+    }
+    expect(data).toEqual(expected)
+
+    //Delete the 0. element of the list
+    await DYNAMO.deleteNestedListItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1.the_list_attribute[0]', item2)
+    data = await DYNAMO.readItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1')
+    expected = {
+        Item: {
+            ATTRIBUTE_1: {
+                M: { the_list_attribute: { L: [ { S: 'data2' }, { N: '6656.55' }] } }
+            }
+        }
+    }
+    expect(data).toEqual(expected)
+
+    //Delete multiple elements
+    await DYNAMO.deleteNestedListItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1.the_list_attribute[0], ATTRIBUTE_1.the_list_attribute[1]', item2)
+    data = await DYNAMO.readItem('TEST_TABLE_1', pk, sk, 'ATTRIBUTE_1')
+    expected = {
+        Item: {
+            ATTRIBUTE_1: {
+                M: { the_list_attribute: { L: [] } }
+            }
+        }
+    }
+    expect(data).toEqual(expected)
+})
+
+
 //DELETE ITEM tests
 test('[2 KEYS] [SINGLE ATTRIBUTE] [WRITE AND DELETE AND READ] [STRING ATTRIBUTE] [NO CONDITION] [SUCCESSFUL]', async () => {
 

@@ -1,3 +1,5 @@
+var UUID = require("uuid");
+
 var DYNAMO = require('./dynamoconnector')
 var LOG = require('../auxiliary/logManager');
 
@@ -10,21 +12,21 @@ async function writeNewArtifactDefinition(artifactType, artifactId, stakeholders
     var sk = { name: 'ARTIFACT_ID', value: artifactId }
     var attributes = []
     attributes.push({ name: 'STAKEHOLDERS', type: 'SS', value: stakeholders })
-    //attributes.push({ name: 'ATTACHED_TO', type: 'SS', value: ['ROOT'] })
+    attributes.push({ name: 'ATTACHED_TO', type: 'M', value: {} })
     attributes.push({ name: 'FAULTY_RATES', type: 'M', value: {} }) // Empty map for faulty rates
     attributes.push({ name: 'TIMING_FAULTY_RATES', type: 'M', value: {} })
     attributes.push({ name: 'HOST', type: 'S', value: host })
     attributes.push({ name: 'PORT', type: 'N', value: port.toString() })
-    try{
+    try {
         const result = await DYNAMO.writeItem('ARTIFACT_DEFINITION', pk, sk, attributes)
         return result
-    }catch(error){
+    } catch (error) {
         return 'error'
     }
 }
 
 async function readArtifactDefinition(artifactType, artifactId) {
-    if(artifactType == undefined || artifactId == undefined || artifactType.length == 0 || artifactId.length == 0){
+    if (artifactType == undefined || artifactId == undefined || artifactType.length == 0 || artifactId.length == 0) {
         return undefined
     }
     var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
@@ -36,24 +38,38 @@ async function readArtifactDefinition(artifactType, artifactId) {
             artifacttype: data.Item?.ARTIFACT_TYPE.S,
             artifactid: data.Item?.ARTIFACT_ID.S,
             stakeholders: data.Item?.STAKEHOLDERS.SS,
-            //attachedto: data.Item?.ATTACHED_TO.L,
+            attachedto: data.Item?.ATTACHED_TO.M || {},
             faultyrates: data.Item?.FAULTY_RATES.M,
             timingfaultyrates: data.Item?.TIMING_FAULTY_RATES.M,
             host: data.Item?.HOST.S,
             port: data.Item?.PORT.N,
         }
+        var buffer = new Set()
+        for (var entry of Object.entries(final.attachedto)) {
+            var key = entry[0],
+                value = entry[1];
+
+            buffer.add({ process_type: value.L[0].S, process_id: value.L[1].S, process_perspective: value.L[2].S })
+        }
+        final.attachedto = buffer
     }
     return final
 }
 
-/*
-async function writeArtifactAttachment(artifactType, artifactId, processid) {
+async function updateArtifactProcessAttachment(artifactType, artifactId, processType, processId, processperspective, operation) {
+    var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
+    var sk = { name: 'ARTIFACT_ID', value: artifactId }
+    var mapKey = processType.replace(/[^A-Z0-9]/ig, "_") +
+        '_' + processId.replace(/[^A-Z0-9]/ig, "_") + '_' + processperspective.replace(/[^A-Z0-9]/ig, "_")
 
+    if (operation == 'attached') {
+        return await DYNAMO.setMapElement('ARTIFACT_DEFINITION', pk, sk, `ATTACHED_TO.${mapKey}`,
+            { L: [{ S: processType }, { S: processId }, { S: processperspective }] })
+    }
+    else if (operation == 'detached') {
+        return await DYNAMO.removeMapElement('ARTIFACT_DEFINITION', pk, sk, `ATTACHED_TO.${mapKey}`)
+    }
 }
-
-async function writeArtifactDetachment(artifactType, artifactId, processid) {
-
-}*/
 
 async function isArtifactDefined(artifactType, artifactId) {
     var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
@@ -438,7 +454,7 @@ async function readStakeholder(stakeholderid) {
     return final
 }
 
-async function readAllStakeholder(){
+async function readAllStakeholder() {
     const data = await DYNAMO.scanTable('STAKEHOLDERS')
     var final = []
     if (data) {
@@ -590,106 +606,53 @@ async function writeStageEvent(stagelog) {
     return DYNAMO.writeItem('STAGE_EVENT', pk, sk, attributes)
 }
 
-//async function writeStageEvent(stagelog) {
-//    var pk = { name: 'PROCESS_NAME', value: stagelog.processid }
-//    var sk = { name: 'EVENT_ID', value: stagelog.eventid }
-//    var attributes = []
-//    attributes.push({ name: 'TIMESTAMP', type: 'N', value: stagelog.timestamp.toString() })
-//    attributes.push({ name: 'STAGE_NAME', value: stagelog.stagename })
-//    attributes.push({ name: 'STAGE_STATUS', value: stagelog.status })
-//    attributes.push({ name: 'STAGE_STATE', value: stagelog.state })
-//    attributes.push({ name: 'STAGE_COMPLIANCE', value: stagelog.compliance })
-//    return DYNAMO.writeItem('STAGE_EVENT', pk, sk, attributes)
-//}
-
-
-/*function writeNewProcessGroup(groupname) {
-    var pk = { name: 'NAME', value: groupname }
-    var attributes = []
-    attributes.push({ name: 'PROCESSES', type: 'SS', value: ['ROOT'] })
-    DYNAMO.writeItem('PROCESS_GROUP_DEFINITION', pk, undefined, attributes)
-}
-
-function addProcessToProcessGroup(groupname, processName) {
-    DYNAMO.readItem('PROCESS_GROUP_DEFINITION', { name: 'NAME', value: groupname })
-        .then(function (data) {
-            var processes = []
-            if (data.Item.PROCESSES) {
-                console.log(data.Item.PROCESSES.SS)
-                if (data.Item.PROCESSES.SS.includes(processName)) {
-                    return
-                }
-                processes = [...data.Item.PROCESSES.SS];
-            }
-            processes.push(processName)
-            DYNAMO.updateItem('PROCESS_GROUP_DEFINITION',
-                { name: 'NAME', value: groupname },
-                undefined,
-                [{ name: 'PROCESSES', type: 'SS', value: processes }])
-        }).catch(err => { console.log('error:' + err) })
-}
-
-function removeProcessFromProcessGroup(groupname, processName) {
-    DYNAMO.readItem('PROCESS_GROUP_DEFINITION', { name: 'NAME', value: groupname })
-        .then(function (data) {
-            var processes = []
-            if (!data.Item.PROCESSES) {
-                return
-            }
-            else {
-                console.log(data.Item.PROCESSES.SS)
-                if (!data.Item.PROCESSES.SS.includes(processName)) {
-                    return
-                }
-                for (var i = 0; i < data.Item.PROCESSES.SS.length; i++) {
-                    if (data.Item.PROCESSES.SS[i] === processName) {
-                        data.Item.PROCESSES.SS.splice(i, 1);
-                    }
-                }
-                processes = [...data.Item.PROCESSES.SS];
-                DYNAMO.updateItem('PROCESS_GROUP_DEFINITION',
-                    { name: 'NAME', value: groupname },
-                    undefined,
-                    [{ name: 'PROCESSES', type: 'SS', value: processes }])
-            }
-        }).catch(err => { console.log('error:' + err) })
-}*/
-
 module.exports = {
+    //[ARTIFACT_DEFINITION] operations
     writeNewArtifactDefinition: writeNewArtifactDefinition,
     isArtifactDefined: isArtifactDefined,
-    readArtifactDefinition:readArtifactDefinition,
+    readArtifactDefinition: readArtifactDefinition,
     getArtifactStakeholders: getArtifactStakeholders,
     addNewFaultyRateWindow: addNewFaultyRateWindow,
     getArtifactFaultyRateLatest: getArtifactFaultyRateLatest,
     addArtifactFaultyRateToWindow: addArtifactFaultyRateToWindow,
     getArtifactFaultyRateValues: getArtifactFaultyRateValues,
+    updateArtifactProcessAttachment: updateArtifactProcessAttachment,
 
+    //[ARTIFACT_USAGE] operations
     writeArtifactUsageEntry: writeArtifactUsageEntry,
     readArtifactUsageEntries: readArtifactUsageEntries,
     deleteArtifactUsageEntries: deleteArtifactUsageEntries,
 
+    //[ARTIFACT_EVENT] operations
     writeArtifactEvent: writeArtifactEvent,
     readUnprocessedArtifactEvents: readUnprocessedArtifactEvents,
-    setArtifactEventToProcessed: setArtifactEventToProcessed,
-    attachArtifactToProcessInstance: attachArtifactToProcessInstance,
-    deattachArtifactFromProcessInstance: deattachArtifactFromProcessInstance,
     readOlderArtifactEvents: readOlderArtifactEvents,
+    setArtifactEventToProcessed: setArtifactEventToProcessed,
     deleteArtifactEvent: deleteArtifactEvent,
+
+    //[PROCESS_TYPE] operations
     writeNewProcessType: writeNewProcessType,
     readProcessType: readProcessType,
+
+    //[PROCESS_INSTANCE] operations
     writeNewProcessInstance: writeNewProcessInstance,
     readProcessInstance: readProcessInstance,
     closeOngoingProcessInstance: closeOngoingProcessInstance,
+    attachArtifactToProcessInstance: attachArtifactToProcessInstance,
+    deattachArtifactFromProcessInstance: deattachArtifactFromProcessInstance,
+
+    //[STAKEHOLDERS] operations
     writeNewStakeholder: writeNewStakeholder,
     readStakeholder: readStakeholder,
+    readAllStakeholder: readAllStakeholder,
 
+    //[PROCESS_GROUP_DEFINITION] operations
     writeNewProcessGroup: writeNewProcessGroup,
     readProcessGroup: readProcessGroup,
     addProcessToProcessGroup: addProcessToProcessGroup,
     removeProcessFromProcessGroup: removeProcessFromProcessGroup,
     readProcessGroupByRules: readProcessGroupByRules,
 
+    //[STAGE_EVENT]
     writeStageEvent: writeStageEvent,
-    readAllStakeholder:readAllStakeholder,
 }

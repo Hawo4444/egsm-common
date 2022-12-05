@@ -57,7 +57,7 @@ test('[writeNewArtifactDefinition] [WRITE AND READ]', async () => {
         Item: {
             ARTIFACT_TYPE: { S: 'truck' },
             ARTIFACT_ID: { S: 'instance-1' },
-            //ATTACHED_TO: { SS: [] },
+            ATTACHED_TO: { M: {} },
             FAULTY_RATES: { M: {} },
             TIMING_FAULTY_RATES: { M: {} },
             STAKEHOLDERS: { SS: ['Best Truck Company', 'Maintainer Company'] },
@@ -70,14 +70,11 @@ test('[writeNewArtifactDefinition] [WRITE AND READ]', async () => {
 
 test('[writeNewArtifactDefinition] [readArtifactDefinition]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
-
-    var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
-    var sk = { name: 'ARTIFACT_ID', value: 'instance-1' }
     const data = await DB.readArtifactDefinition('truck', 'instance-1')
     var expected = {
         artifacttype: 'truck',
         artifactid: 'instance-1',
-        //attachedto: [],
+        attachedto: new Set(),
         faultyrates: {},
         timingfaultyrates: {},
         stakeholders: ['Best Truck Company', 'Maintainer Company'],
@@ -89,11 +86,85 @@ test('[writeNewArtifactDefinition] [readArtifactDefinition]', async () => {
 })
 
 test('[writeNewArtifactDefinition] [readArtifactDefinition] [not found]', async () => {
-    var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
-    var sk = { name: 'ARTIFACT_ID', value: 'instance-1' }
+    await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
     const data = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected = undefined
+    var expected = {
+        artifacttype: 'truck',
+        artifactid: 'instance-1',
+        attachedto: new Set(),
+        faultyrates: {},
+        timingfaultyrates: {},
+        stakeholders: ['Best Truck Company', 'Maintainer Company'],
+        host: 'localhost',
+        port: '1883'
+
+    }
     expect(data).toEqual(expected)
+})
+
+test('[writeNewArtifactDefinition] [updateArtifactProcessAttachment] [readArtifactDefinition]', async () => {
+    await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
+    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process_type_1', 'instance_1', 'truck', 'attached')
+    const data = await DB.readArtifactDefinition('truck', 'instance-1')
+    var expected = {
+        artifacttype: 'truck',
+        artifactid: 'instance-1',
+        attachedto: new Set([{
+            process_type: 'Process_type_1',
+            process_id: 'instance_1',
+            process_perspective: 'truck'
+        }]),
+        faultyrates: {},
+        timingfaultyrates: {},
+        stakeholders: ['Best Truck Company', 'Maintainer Company'],
+        host: 'localhost',
+        port: '1883'
+
+    }
+    expect(data).toEqual(expected)
+
+    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process_type_1', 'instance_2', 'truck', 'attached')
+    const data2 = await DB.readArtifactDefinition('truck', 'instance-1')
+    var expected2 = {
+        artifacttype: 'truck',
+        artifactid: 'instance-1',
+        attachedto: new Set([{
+            process_type: 'Process_type_1',
+            process_id: 'instance_1',
+            process_perspective: 'truck'
+        }, {
+            process_type: 'Process_type_1',
+            process_id: 'instance_2',
+            process_perspective: 'truck'
+        }]),
+        faultyrates: {},
+        timingfaultyrates: {},
+        stakeholders: ['Best Truck Company', 'Maintainer Company'],
+        host: 'localhost',
+        port: '1883'
+
+    }
+
+    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process-type-2', 'instance_1', 'ship', 'attached')
+    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process_type_1', 'instance_1', 'truck', 'detached')
+    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process-type-2', 'instance_1', 'ship', 'detached')
+    const data3 = await DB.readArtifactDefinition('truck', 'instance-1')
+    var expected3 = {
+        artifacttype: 'truck',
+        artifactid: 'instance-1',
+        attachedto: new Set([{
+            process_type: 'Process_type_1',
+            process_id: 'instance_2',
+            process_perspective: 'truck'
+        }]),
+        faultyrates: {},
+        timingfaultyrates: {},
+        stakeholders: ['Best Truck Company', 'Maintainer Company'],
+        host: 'localhost',
+        port: '1883'
+
+    }
+    expect(data3).toEqual(expected3)
 })
 
 test('[isArtifactDefined] [WRITE AND READ]', async () => {
