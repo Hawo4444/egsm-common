@@ -10,7 +10,7 @@ async function initTables() {
     var promises = []
     promises.push(DYNAMO.initTable('PROCESS_TYPE', 'PROCESS_TYPE_NAME', undefined))
     promises.push(DYNAMO.initTable('PROCESS_INSTANCE', 'PROCESS_TYPE_NAME', 'INSTANCE_ID'))
-    promises.push(DYNAMO.initTable('PROCESS_GROUP_DEFINITION', 'NAME', undefined, { indexname: 'RULE_INDEX', pk: { name: 'STAKEHOLDER_RULE', type: 'S' }, sk: { name: 'PROCESS_TYPE_RULE', type: 'S' } }))
+    promises.push(DYNAMO.initTable('PROCESS_GROUP_DEFINITION', 'NAME', undefined))
     promises.push(DYNAMO.initTable('STAKEHOLDERS', 'STAKEHOLDER_ID', undefined))
 
     promises.push(DYNAMO.initTable('ARTIFACT_DEFINITION', 'ARTIFACT_TYPE', 'ARTIFACT_ID'))
@@ -850,156 +850,17 @@ test('[writeNewStakeholder][readStakeholder][WRITE AND READ]', async () => {
 
 test('[writeNewProcessGroup][readProcessGroup][WRITE AND READ]', async () => {
     //Define process group with non-empty process list and read back and no type definition
-    await DB.writeNewProcessGroup('group-1', ['process-1', 'process-2'])
+    await DB.writeNewProcessGroup('group-1',{rule:'rule-1'})
     const data1 = await DB.readProcessGroup('group-1')
     var expected1 = {
         name: 'group-1',
-        processes: ['process-1', 'process-2'],
-        type: 'static'
+        membership_rules: {rule:'rule-1'}
     }
     expect(data1).toEqual(expected1)
-
-    //Define process group with empty process list and read back
-    await DB.writeNewProcessGroup('group-2', [])
-
-    const data2 = await DB.readProcessGroup('group-2')
-    var expected2 = {
-        name: 'group-2',
-        processes: [],
-        type: 'static'
-    }
-    expect(data2).toEqual(expected2)
 
     //Try to read non-defined process group
     const data3 = await DB.readProcessGroup('group-3')
     var expected3 = undefined
-    expect(data3).toEqual(expected3)
-
-    //Define type and rules as well
-    await DB.writeNewProcessGroup('group-4', [], 'dynamic', 'Truck Company', 'Dummy Process')
-
-    const data4 = await DB.readProcessGroup('group-4')
-    var expected4 = {
-        name: 'group-4',
-        processes: [],
-        type: 'dynamic',
-        stakeholder_rule: 'Truck Company',
-        process_type_rule: 'Dummy Process'
-    }
-    expect(data4).toEqual(expected4)
-
-    //Define static type and no rules
-    await DB.writeNewProcessGroup('group-5', [], 'static')
-
-    const data5 = await DB.readProcessGroup('group-5')
-    var expected5 = {
-        name: 'group-5',
-        processes: [],
-        type: 'static'
-    }
-    expect(data5).toEqual(expected5)
-})
-
-test('[writeNewProcessGroup][addProcessToProcessGroup][readProcessGroup][WRITE AND READ]', async () => {
-    //Define process group with non-empty process list and read back
-    await DB.writeNewProcessGroup('group-1', ['process-1', 'process-2'])
-    await DB.addProcessToProcessGroup('group-1', 'process-3')
-    const data1 = await DB.readProcessGroup('group-1')
-    var expected1 = {
-        name: 'group-1',
-        processes: ['process-1', 'process-2', 'process-3'],
-        type: 'static'
-    }
-    expect(data1).toEqual(expected1)
-
-    //Try to add the same instance again
-    await DB.addProcessToProcessGroup('group-1', 'process-3')
-    const data2 = await DB.readProcessGroup('group-1')
-    var expected2 = {
-        name: 'group-1',
-        processes: ['process-1', 'process-2', 'process-3'],
-        type: 'static'
-    }
-    expect(data2).toEqual(expected2)
-
-    //Define process group with empty process list and read back
-    await DB.writeNewProcessGroup('group-2', [])
-    await DB.addProcessToProcessGroup('group-2', 'process-1')
-    const data3 = await DB.readProcessGroup('group-2')
-    var expected3 = {
-        name: 'group-2',
-        processes: ['process-1'],
-        type: 'static'
-    }
-    expect(data3).toEqual(expected3)
-
-    //Try to add process to non-defined process group
-    await DB.addProcessToProcessGroup('group-4', 'process-1')
-    const data4 = await DB.readProcessGroup('group-4')
-    var expected4 = undefined
-    expect(data4).toEqual(expected4)
-})
-
-test('[writeNewProcessGroup][removeProcessFromProcessGroup][readProcessGroup][WRITE AND REMOVE AND READ]', async () => {
-    //Define process group with non-empty process list and read back
-    await DB.writeNewProcessGroup('group-1', ['process-1', 'process-2', 'process-3'])
-    await DB.removeProcessFromProcessGroup('group-1', 'process-2')
-    const data1 = await DB.readProcessGroup('group-1')
-    var expected1 = {
-        name: 'group-1',
-        processes: ['process-1', 'process-3'],
-        type: 'static'
-    }
-    expect(data1).toEqual(expected1)
-
-    //Define process group with empty process list and read back
-    await DB.writeNewProcessGroup('group-2', ['process-1'], 'dynamic', 'stakeholder1', 'dummy1')
-    await DB.removeProcessFromProcessGroup('group-2', 'process-1')
-    const data2 = await DB.readProcessGroup('group-2')
-    var expected2 = {
-        name: 'group-2',
-        processes: [],
-        type: 'dynamic',
-        stakeholder_rule: 'stakeholder1',
-        process_type_rule: 'dummy1'
-    }
-    expect(data2).toEqual(expected2)
-})
-
-test('[writeNewProcessGroup][readProcessGroupByRules][readProcessGroup][WRITE AND READ]', async () => {
-    await DB.writeNewProcessGroup('group-1', [], 'dynamic', 'Stakeholder 1', 'Dummy Process 1')
-    await DB.writeNewProcessGroup('group-2', [], 'dynamic', 'Stakeholder 1', 'Dummy Process 2')
-    await DB.writeNewProcessGroup('group-3', [], 'dynamic', 'Stakeholder 2', 'Dummy Process 3')
-
-    const data1 = await DB.readProcessGroupByRules('Stakeholder 1', 'Dummy Process 1')
-    const expected1 = [{
-        name: 'group-1',
-        processes: [],
-        type: 'dynamic',
-        stakeholder_rule: 'Stakeholder 1',
-        process_type_rule: 'Dummy Process 1'
-    }]
-    expect(data1).toEqual(expected1)
-
-    const data2 = await DB.readProcessGroupByRules('Stakeholder 2', 'Dummy Process 1')
-    const expected2 = []
-    expect(data2).toEqual(expected2)
-
-    const data3 = await DB.readProcessGroupByRules('Stakeholder 1')
-    const expected3 = [{
-        name: 'group-1',
-        processes: [],
-        type: 'dynamic',
-        stakeholder_rule: 'Stakeholder 1',
-        process_type_rule: 'Dummy Process 1'
-    },
-    {
-        name: 'group-2',
-        processes: [],
-        type: 'dynamic',
-        stakeholder_rule: 'Stakeholder 1',
-        process_type_rule: 'Dummy Process 2'
-    }]
     expect(data3).toEqual(expected3)
 })
 

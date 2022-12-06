@@ -325,9 +325,6 @@ async function writeNewProcessInstance(processtype, instanceid, stakeholders, st
     if (stakeholders && stakeholders.length > 0) {
         attributes.push({ name: 'STAKEHOLDERS', type: 'SS', value: stakeholders })
     }
-    /*if (groups && groups.length > 0) {
-        attributes.push({ name: 'GROUPS', type: 'SS', value: groups })
-    }*/
     var attachedbuff = []
     if (attached) {
         attached.forEach(element => {
@@ -360,7 +357,6 @@ async function readProcessInstance(processtype, instanceid) {
             endingtime: Number(data['Item']['ENDING_TIME']['N']),
             status: data['Item']['STATUS']['S'],
             stakeholders: data['Item']?.STAKEHOLDERS?.SS || [],
-            //groups: data['Item']?.GROUPS?.SS || [],
             attached: [],
             host: data['Item']?.HOST?.S || 'localhost',
             port: Number(data['Item']?.PORT?.N) || 1883,
@@ -469,24 +465,10 @@ async function readAllStakeholder() {
 }
 
 //PROCESS GROUP operations
-async function writeNewProcessGroup(processgroupid, memberprocesses, grouptype, stakeholderrule, processtyperule) {
+async function writeNewProcessGroup(processgroupid, membershiprules) {
     var pk = { name: 'NAME', value: processgroupid }
     var attributes = []
-    if (grouptype == undefined) {
-        grouptype = 'static'
-    }
-    attributes.push({ name: 'GROUP_TYPE', type: 'S', value: grouptype })
-    if (memberprocesses && memberprocesses.length > 0 && grouptype == 'static') {
-        var buffer = []
-        for (var i = 0; i < memberprocesses.length; i++) {
-            buffer.push({ S: memberprocesses[i] })
-        }
-        attributes.push({ name: 'PROCESSES', type: 'L', value: buffer })
-    }
-    if (grouptype == 'dynamic') {
-        attributes.push({ name: 'STAKEHOLDER_RULE', type: 'S', value: stakeholderrule })
-        attributes.push({ name: 'PROCESS_TYPE_RULE', type: 'S', value: processtyperule })
-    }
+    attributes.push({ name: 'MEMBERSHIP_RULES', type: 'S', value: JSON.stringify(membershiprules) })
     return await DYNAMO.writeItem('PROCESS_GROUP_DEFINITION', pk, undefined, attributes)
 }
 
@@ -497,101 +479,12 @@ async function readProcessGroup(processgroupid) {
     if (data['Item'] != undefined) {
         final = {
             name: data['Item']['NAME']['S'],
-            type: data['Item']['GROUP_TYPE']['S'],
-            processes: []
-        }
-        if (final.type == 'dynamic') {
-            final['stakeholder_rule'] = data['Item']?.STAKEHOLDER_RULE?.S || undefined
-            final['process_type_rule'] = data['Item']?.PROCESS_TYPE_RULE?.S || undefined
-        }
-        var processesBuff = data['Item']?.PROCESSES?.L
-        if (processesBuff) {
-            processesBuff.forEach(element => {
-                final.processes.push(element.S)
-            });
+            membership_rules: JSON.parse(data['Item']['MEMBERSHIP_RULES']['S']),
         }
     }
     return final
 }
 
-async function addProcessToProcessGroup(processgroupid, newprocessid) {
-    const reading = await readProcessGroup(processgroupid)
-    if (reading == undefined) {
-        LOG.logSystem('ERROR', `Cannot add process ${newprocessid} to process group ${processgroupid}, since the group is not defined`)
-        return
-        //return writeNewProcessGroup(processgroupid, [newprocessid])
-    }
-
-    //If the group is already defined
-    var oldarray = reading?.processes || []
-    if (!oldarray.includes(newprocessid)) {
-        oldarray.push(newprocessid)
-    }
-    var newArray = []
-    oldarray.forEach(element => {
-        newArray.push({ S: element })
-    });
-    var pk = { name: 'NAME', value: processgroupid }
-    var attributes = []
-    attributes.push({ name: 'PROCESSES', type: 'L', value: newArray })
-    const data = await DYNAMO.updateItem('PROCESS_GROUP_DEFINITION', pk, undefined, attributes)
-    return data
-}
-
-async function removeProcessFromProcessGroup(processgroupid, processid) {
-    const reading = await readProcessGroup(processgroupid)
-    if (reading == undefined) {
-        LOG.logSystem("WARNING", `Group not found ${processgroupid}`, module.id)
-        return
-    }
-
-    //If the group is already defined
-    var oldarray = reading?.processes || []
-    if (oldarray.indexOf(processid) != -1) {
-        var index = oldarray.indexOf(processid)
-        oldarray.splice(index, 1)
-    }
-
-    var newArray = []
-    oldarray.forEach(element => {
-        newArray.push({ S: element })
-    });
-    var pk = { name: 'NAME', value: processgroupid }
-    var attributes = []
-    attributes.push({ name: 'PROCESSES', type: 'L', value: newArray })
-    const data = await DYNAMO.updateItem('PROCESS_GROUP_DEFINITION', pk, undefined, attributes)
-    return data
-}
-
-async function readProcessGroupByRules(stakeholderrule, processtyperule) {
-    var keyexpression = 'STAKEHOLDER_RULE = :a'
-    var expressionattributevalues = {
-        ':a': { S: stakeholderrule },
-        // ':b': { S: processtyperule },
-    }
-    if (processtyperule != undefined) {
-        keyexpression += ' AND PROCESS_TYPE_RULE = :b'
-        expressionattributevalues[':b'] = { S: processtyperule }
-    }
-    result = await DYNAMO.query('PROCESS_GROUP_DEFINITION', keyexpression, expressionattributevalues, undefined, undefined, 'RULE_INDEX')
-    var final = []
-    result.forEach(element => {
-        final.push({
-            name: element.NAME.S,
-            type: element.GROUP_TYPE.S,
-            processes: [],//element.ARTIFACT_STATE.S,
-            stakeholder_rule: element?.STAKEHOLDER_RULE?.S || undefined,
-            process_type_rule: element?.PROCESS_TYPE_RULE?.S || undefined,
-        })
-        var processesBuff = element?.PROCESSES?.SS
-        if (processesBuff) {
-            processesBuff.forEach(element => {
-                final.processes.push(element)
-            });
-        }
-    });
-    return final
-}
 
 //STAGE EVENTS
 async function writeStageEvent(stagelog) {
@@ -649,9 +542,6 @@ module.exports = {
     //[PROCESS_GROUP_DEFINITION] operations
     writeNewProcessGroup: writeNewProcessGroup,
     readProcessGroup: readProcessGroup,
-    addProcessToProcessGroup: addProcessToProcessGroup,
-    removeProcessFromProcessGroup: removeProcessFromProcessGroup,
-    readProcessGroupByRules: readProcessGroupByRules,
 
     //[STAGE_EVENT]
     writeStageEvent: writeStageEvent,
