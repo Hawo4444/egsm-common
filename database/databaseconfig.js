@@ -13,7 +13,7 @@ var tables = [
     { name: 'PROCESS_TYPE', pk: 'PROCESS_TYPE_NAME', sk: undefined },
     { name: 'STAKEHOLDERS', pk: 'STAKEHOLDER_ID', sk: undefined },
     { name: 'PROCESS_INSTANCE', pk: 'PROCESS_TYPE_NAME', sk: 'INSTANCE_ID' },
-    { name: 'PROCESS_GROUP_DEFINITION', pk: 'NAME', sk: undefined},
+    { name: 'PROCESS_GROUP_DEFINITION', pk: 'NAME', sk: undefined },
 
     { name: 'STAGE_EVENT', pk: 'PROCESS_NAME', sk: 'EVENT_ID' },
 ]
@@ -24,15 +24,6 @@ function initDatabaseConnection() {
 
 async function initTables() {
     var promises = []
-    /*tables.forEach(element => {
-        try {
-            promises.push(DYNAMO.deleteTable(element.name))
-            console.log(element.name + ' deleted')
-        } catch (error) {
-            console.error(element.name + ' could not be deleted')
-        }
-    });*/
-
     await Promise.all(promises)
     promises = []
 
@@ -48,7 +39,21 @@ async function initTables() {
     await Promise.all(promises)
 }
 
+async function deleteTables() {
+    var promises = []
+    tables.forEach(element => {
+        try {
+            promises.push(DYNAMO.deleteTable(element.name))
+            console.log(element.name + ' deleted')
+        } catch (error) {
+            console.error(element.name + ' could not be deleted')
+        }
+    });
+    await Promise.all(promises)
+}
+
 module.exports = {
     initDatabaseConnection: initDatabaseConnection,
-    initTables: initTables
+    initTables: initTables,
+    deleteTables: deleteTables
 }

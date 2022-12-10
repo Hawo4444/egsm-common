@@ -1,7 +1,7 @@
 var LOG = require('../auxiliary/LogManager')
 //LOG.setLogLevel(5)
 
-var DYNAMO = require('./dynamoconnector')
+var DYNAMO = require('../database/dynamoconnector')
 
 beforeAll(() => {
     DYNAMO.initDynamo('fakeMyKeyId', 'fakeSecretAccessKey', 'local', 'http://localhost:8000')

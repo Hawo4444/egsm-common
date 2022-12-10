@@ -3,8 +3,9 @@ var LOG = require('../auxiliary/LogManager')
 var AUX = require('../auxiliary/auxiliary')
 //LOG.setLogLevel(5)
 
-var DYNAMO = require('./dynamoconnector')
-var DB = require('./databaseconnector')
+var DYNAMO = require('../database/dynamoconnector')
+var DB = require('../database/databaseconnector');
+const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, StageEvent } = require('../auxiliary/primitives');
 
 async function initTables() {
     var promises = []
@@ -57,7 +58,6 @@ test('[writeNewArtifactDefinition] [WRITE AND READ]', async () => {
         Item: {
             ARTIFACT_TYPE: { S: 'truck' },
             ARTIFACT_ID: { S: 'instance-1' },
-            ATTACHED_TO: { M: {} },
             FAULTY_RATES: { M: {} },
             TIMING_FAULTY_RATES: { M: {} },
             STAKEHOLDERS: { SS: ['Best Truck Company', 'Maintainer Company'] },
@@ -71,108 +71,21 @@ test('[writeNewArtifactDefinition] [WRITE AND READ]', async () => {
 test('[writeNewArtifactDefinition] [readArtifactDefinition]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
     const data = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected = {
-        artifacttype: 'truck',
-        artifactid: 'instance-1',
-        attachedto: new Set(),
-        faultyrates: {},
-        timingfaultyrates: {},
-        stakeholders: ['Best Truck Company', 'Maintainer Company'],
-        host: 'localhost',
-        port: '1883'
-
-    }
+    var expected = new Artifact('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], {}, {}, 'localhost', '1883')
     expect(data).toEqual(expected)
 })
 
 test('[writeNewArtifactDefinition] [readArtifactDefinition] [not found]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
     const data = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected = {
-        artifacttype: 'truck',
-        artifactid: 'instance-1',
-        attachedto: new Set(),
-        faultyrates: {},
-        timingfaultyrates: {},
-        stakeholders: ['Best Truck Company', 'Maintainer Company'],
-        host: 'localhost',
-        port: '1883'
-
-    }
+    var expected = new Artifact('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], {}, {}, 'localhost', '1883')
     expect(data).toEqual(expected)
-})
-
-test('[writeNewArtifactDefinition] [updateArtifactProcessAttachment] [readArtifactDefinition]', async () => {
-    await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
-    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process_type_1', 'instance_1', 'truck', 'attached')
-    const data = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected = {
-        artifacttype: 'truck',
-        artifactid: 'instance-1',
-        attachedto: new Set([{
-            process_type: 'Process_type_1',
-            process_id: 'instance_1',
-            process_perspective: 'truck'
-        }]),
-        faultyrates: {},
-        timingfaultyrates: {},
-        stakeholders: ['Best Truck Company', 'Maintainer Company'],
-        host: 'localhost',
-        port: '1883'
-
-    }
-    expect(data).toEqual(expected)
-
-    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process_type_1', 'instance_2', 'truck', 'attached')
-    const data2 = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected2 = {
-        artifacttype: 'truck',
-        artifactid: 'instance-1',
-        attachedto: new Set([{
-            process_type: 'Process_type_1',
-            process_id: 'instance_1',
-            process_perspective: 'truck'
-        }, {
-            process_type: 'Process_type_1',
-            process_id: 'instance_2',
-            process_perspective: 'truck'
-        }]),
-        faultyrates: {},
-        timingfaultyrates: {},
-        stakeholders: ['Best Truck Company', 'Maintainer Company'],
-        host: 'localhost',
-        port: '1883'
-
-    }
-
-    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process-type-2', 'instance_1', 'ship', 'attached')
-    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process_type_1', 'instance_1', 'truck', 'detached')
-    await DB.updateArtifactProcessAttachment('truck', 'instance-1', 'Process-type-2', 'instance_1', 'ship', 'detached')
-    const data3 = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected3 = {
-        artifacttype: 'truck',
-        artifactid: 'instance-1',
-        attachedto: new Set([{
-            process_type: 'Process_type_1',
-            process_id: 'instance_2',
-            process_perspective: 'truck'
-        }]),
-        faultyrates: {},
-        timingfaultyrates: {},
-        stakeholders: ['Best Truck Company', 'Maintainer Company'],
-        host: 'localhost',
-        port: '1883'
-
-    }
-    expect(data3).toEqual(expected3)
 })
 
 test('[isArtifactDefined] [WRITE AND READ]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], '192.168.0.1', 1883)
-
     const data = await DB.isArtifactDefined('truck', 'instance-1')
     expect(data).toEqual(true)
-
     const data2 = await DB.isArtifactDefined('truck', 'instance-2')
     expect(data2).toEqual(false)
 })
@@ -180,7 +93,6 @@ test('[isArtifactDefined] [WRITE AND READ]', async () => {
 test('[getArtifactStakeholders] [WRITE AND READ]', async () => {
     //Assumed that the list is not empty (There is always at least one stakeholder)
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1888)
-
     const data = await DB.getArtifactStakeholders('truck', 'instance-1')
     var expected = ["Best Truck Company", "Maintainer Company"]
     expect(data).toEqual(expected)
@@ -189,10 +101,8 @@ test('[getArtifactStakeholders] [WRITE AND READ]', async () => {
 test('[addNewFaultyRateWindow] [WRITE AND READ]', async () => {
     //Adding a new Artifact
     await DB.writeNewArtifactDefinition('truck', 'instance-2', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
-
     //Defining a new Faulty Rate Window
     await DB.addNewFaultyRateWindow('truck', 'instance-2', 10)
-
     var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
     var sk = { name: 'ARTIFACT_ID', value: 'instance-2' }
     const data = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATES.w10')
@@ -384,15 +294,9 @@ test('[getArtifactFaultyRateLatest] [WRITE AND READ]', async () => {
 //EVENT RELATED TESTS
 test('[writeArtifactEvent] [WRITE AND READ]', async () => {
     //Writing Artifact Event
-    var eventDetailJson = {
-        timestamp: 1000,
-        artifact_name: 'artifact/instance1',
-        artifact_state: 'attached',
-        process_type: 'process_type1',
-        process_id: '001',
-        event_id: 'event-001'
-    }
-    await DB.writeArtifactEvent(eventDetailJson)
+
+    var artifactEvent = new ArtifactEvent('artifact/instance1', 'attached', 1000, 'process_type1', '001', 'event-001')
+    await DB.writeArtifactEvent(artifactEvent)
 
     var pk = { name: 'ARTIFACT_NAME', value: 'artifact/instance1' }
     var sk = { name: 'EVENT_ID', value: 'event-001' }
@@ -412,49 +316,28 @@ test('[writeArtifactEvent] [WRITE AND READ]', async () => {
 
 })
 
-
 test('[readUnprocessedArtifactEvents] [WRITE AND READ]', async () => {
     //Writing Artifact Events
     for (var i = 0; i < 5; i++) {
-        var eventDetailJson = {
-            timestamp: 1000,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`
-        }
-        await DB.writeArtifactEvent(eventDetailJson)
+        var artifactEvent = new ArtifactEvent('artifact1/instance1', 'attached', 1000, 'process_type1', '001', `event-${i}`)
+        await DB.writeArtifactEvent(artifactEvent)
     }
 
     //Read unprocessed entries (all should be unprocessed)
     var data1 = await DB.readUnprocessedArtifactEvents('artifact1/instance1')
     var expected1 = []
     for (var i = 0; i < 5; i++) {
-        expected1.push({
-            timestamp: 1000,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`,
-            entry_processed: 0
-        })
+        expected1.push(
+            new ArtifactEvent('artifact1/instance1', 'attached', 1000, 'process_type1', '001', `event-${i}`, 0)
+        )
     }
     expect(data1).toEqual(expected1)
 
     //Add some further entries and read unprocessed entries
     //without specifying artifact
     for (var i = 0; i < 5; i++) {
-        var eventDetailJson = {
-            timestamp: 1000 + i,
-            artifact_name: `artifact${i}/instance${i}`,
-            artifact_state: 'detached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${4 + i}`
-        }
-        await DB.writeArtifactEvent(eventDetailJson)
+        var artifactEvent = new ArtifactEvent(`artifact${i}/instance${i}`, 'detached', 1000 + i, 'process_type1', '001', `event-${4 + i}`)
+        await DB.writeArtifactEvent(artifactEvent)
     }
     var data2 = await DB.readUnprocessedArtifactEvents()
     expect(data2.length).toEqual(10)
@@ -463,30 +346,18 @@ test('[readUnprocessedArtifactEvents] [WRITE AND READ]', async () => {
 test('[readOlderArtifactEvents] [WRITE AND READ]', async () => {
     //Writing Artifact Events
     for (var i = 0; i < 15; i++) {
-        var eventDetailJson = {
-            timestamp: 1000 + i,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`
-        }
-        await DB.writeArtifactEvent(eventDetailJson)
+        var artifactEvent = new ArtifactEvent('artifact1/instance1', 'attached', 1000 + i, 'process_type1', '001', `event-${i}`)
+        await DB.writeArtifactEvent(artifactEvent)
     }
 
     //Read unprocessed entries (all should be unprocessed)
     var data1 = await DB.readOlderArtifactEvents('artifact1/instance1', 1004)
     var expected1 = []
     for (var i = 0; i < 5; i++) {
-        expected1.push({
-            timestamp: 1000 + i,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`,
-            entry_processed: 0
-        })
+
+        expected1.push(
+            new ArtifactEvent('artifact1/instance1', 'attached', 1000 + i, 'process_type1', '001', `event-${i}`, 0)
+        )
     }
     expect(data1).toEqual(expected1)
 })
@@ -494,15 +365,8 @@ test('[readOlderArtifactEvents] [WRITE AND READ]', async () => {
 test('[setArtifactEventToProcessed] [WRITE AND READ]', async () => {
     //Writing Artifact Events
     for (var i = 0; i < 2; i++) {
-        var eventDetailJson = {
-            timestamp: 1000 + i,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`
-        }
-        await DB.writeArtifactEvent(eventDetailJson)
+        var artifactEvent = new ArtifactEvent('artifact1/instance1', 'attached', 1000 + i, 'process_type1', '001', `event-${i}`)
+        await DB.writeArtifactEvent(artifactEvent)
     }
 
     for (var i = 0; i < 1; i++) {
@@ -513,15 +377,8 @@ test('[setArtifactEventToProcessed] [WRITE AND READ]', async () => {
     var data1 = await DB.readUnprocessedArtifactEvents('artifact1/instance1')
     var expected1 = []
     for (var i = 1; i < 2; i++) {
-        expected1.push({
-            timestamp: 1000 + i,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`,
-            entry_processed: 0
-        })
+        expected1.push(
+            new ArtifactEvent('artifact1/instance1', 'attached', 1000 + i, 'process_type1', '001', `event-${i}`, 0))
     }
     expect(data1).toEqual(expected1)
 })
@@ -529,15 +386,8 @@ test('[setArtifactEventToProcessed] [WRITE AND READ]', async () => {
 test('[deleteArtifactEvent] [WRITE AND READ]', async () => {
     //Writing Artifact Events
     for (var i = 0; i < 15; i++) {
-        var eventDetailJson = {
-            timestamp: 1000 + i,
-            artifact_name: 'artifact1/instance1',
-            artifact_state: 'attached',
-            process_type: 'process_type1',
-            process_id: '001',
-            event_id: `event-${i}`
-        }
-        await DB.writeArtifactEvent(eventDetailJson)
+        var artifactEvent = new ArtifactEvent('artifact1/instance1', 'attached', 1000 + i, 'process_type1', '001', `event-${i}`)
+        await DB.writeArtifactEvent(artifactEvent)
     }
 
     for (var i = 0; i < 15; i++) {
@@ -553,37 +403,24 @@ test('[deleteArtifactEvent] [WRITE AND READ]', async () => {
 
 test('[writeArtifactUsageEntry][readArtifactUsageEntries] [WRITE AND READ]', async () => {
     for (var i = 0; i < 5; i++) {
-        await DB.writeArtifactUsageEntry('truck/001', `case_${i}`, 1000 + 1, 1500 + i, 'dummy', 'instance_1', 'success')
+        await DB.writeArtifactUsageEntry('truck/001', `case_${i}`, 1001 + i, 1500 + i, 'dummy', 'instance_1', 'success')
     }
     for (var i = 0; i < 5; i++) {
-        await DB.writeArtifactUsageEntry('truck/001', `case_${i + 10}`, 1000 + 1, 1250 + i, 'dummy', 'instance_1', 'success')
+        await DB.writeArtifactUsageEntry('truck/001', `case_${i + 10}`, 1000 + i, 1250 + i, 'dummy', 'instance_1', 'success')
     }
 
     var data1 = await DB.readArtifactUsageEntries('truck/001', 1500, 1500)
-    var expected1 = [{
-        "ARTIFACT_NAME": "truck/001",
-        "ATTACHED_TIME": "1001",
-        "CASE_ID": "case_0",
-        "DETACHED_TIME": "1500",
-        "OUTCOME": "success",
-        "PROCESS_ID": "instance_1",
-        "PROCESS_TYPE": "dummy",
-    }]
+    var expected1 = [
+        new ArtifactUsageEntry('truck/001', 'case_0', 1001, 1500, 'dummy', 'instance_1', 'success')]
 
     expect(data1).toEqual(expected1)
 
     var data2 = await DB.readArtifactUsageEntries('truck/001', 1250, 1499)
     var expected2 = []
     for (var i = 0; i < 5; i++) {
-        expected2.push({
-            "ARTIFACT_NAME": "truck/001",
-            "ATTACHED_TIME": "1001",
-            "CASE_ID": `case_${i + 10}`,
-            "DETACHED_TIME": `${1250 + i}`,
-            "OUTCOME": "success",
-            "PROCESS_ID": "instance_1",
-            "PROCESS_TYPE": "dummy",
-        })
+        expected2.push(
+            new ArtifactUsageEntry('truck/001', `case_${i + 10}`, i + 1000, 1250 + i, 'dummy', 'instance_1', 'success')
+        )
     }
 
     expect(data2).toEqual(expected2)
@@ -637,37 +474,15 @@ test('[readProcessType][WRITE AND READ]', async () => {
 })
 
 test('[writeNewProcessInstance][readProcessInstance][WRITE AND READ]', async () => {
-    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 1000, ['truck/instance-1'], 'localhost', 1883)
+    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 1000, 'localhost', 1883)
     const data1 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected1 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: ['truck/instance-1'],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
+    var expected1 = new ProcessInstance('dummy1', 'instance-1', 1000, -1, 'ongoing', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 'localhost', 1883, 'NA')
     expect(data1).toEqual(expected1)
 
     //With empty arrays
-    await DB.writeNewProcessInstance('dummy2', 'instance-1', [], 1000, [], '192.168.0.1', 1885)
+    await DB.writeNewProcessInstance('dummy2', 'instance-1', [], 1000, '192.168.0.1', 1885)
     const data2 = await DB.readProcessInstance('dummy2', 'instance-1')
-    var expected2 = {
-        processtype: 'dummy2',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: [],
-        attached: [],
-        host: '192.168.0.1',
-        port: 1885,
-        outcome: 'NA'
-    }
+    var expected2 = new ProcessInstance('dummy2', 'instance-1', 1000, -1, 'ongoing', [], '192.168.0.1', 1885, 'NA')
     expect(data2).toEqual(expected2)
 
     //Read undefined process
@@ -677,169 +492,28 @@ test('[writeNewProcessInstance][readProcessInstance][WRITE AND READ]', async () 
 })
 
 test('[closeOngoingProcessInstance][WRITE AND READ]', async () => {
-    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 1000, [], 'localhost', 1883)
+    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 1000, 'localhost', 1883)
     await DB.closeOngoingProcessInstance('dummy1', 'instance-1', 1550, 'success')
 
     const data1 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected1 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: 1550,
-        status: 'finished',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: [],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'success'
-    }
+    var expected1 = new ProcessInstance('dummy1', 'instance-1', 1000, 1550, 'finished', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 'localhost', 1883, 'success')
     expect(data1).toEqual(expected1)
 
     //With empty arrays
-    await DB.writeNewProcessInstance('dummy2', 'instance-1', [], 1000, [], 'localhost', 1883)
+    await DB.writeNewProcessInstance('dummy2', 'instance-1', [], 1000, 'localhost', 1883)
     await DB.closeOngoingProcessInstance('dummy2', 'instance-1', 2560, 'failure')
     const data2 = await DB.readProcessInstance('dummy2', 'instance-1')
-    var expected2 = {
-        processtype: 'dummy2',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: 2560,
-        status: 'finished',
-        stakeholders: [],
-        attached: [],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'failure'
-    }
+    var expected2 = new ProcessInstance('dummy2', 'instance-1', 1000, 2560, 'finished', [], 'localhost', 1883, 'failure')
     expect(data2).toEqual(expected2)
 
     //Try to close undefined process
     expect(() => { DB.closeOngoingProcessInstance('dummy22', 'instance-3', 2560, 'ok') }).not.toThrow()
 })
 
-test('[attachArtifactToProcessInstance][WRITE AND READ]', async () => {
-    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 1000, [], 'localhost', 1883)
-    await DB.attachArtifactToProcessInstance('dummy1', 'instance-1', 'truck/instance-1')
-
-    const data1 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected1 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: ['truck/instance-1'],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
-    expect(data1).toEqual(expected1)
-
-    await DB.attachArtifactToProcessInstance('dummy1', 'instance-1', 'truck/instance-2')
-
-    const data2 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected2 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: ['truck/instance-1', 'truck/instance-2'],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
-    expect(data2).toEqual(expected2)
-
-    await DB.attachArtifactToProcessInstance('dummy1', 'instance-1', 'truck/instance-2')
-    const data3 = await DB.readProcessInstance('dummy1', 'instance-1')
-    expect(data3).toEqual(expected2)
-})
-
-test('[deattachArtifactFromProcessInstance][WRITE AND READ]', async () => {
-    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1', 'stakeholder2', 'stakeholder3'], 1000, [], 'localhost', 1883)
-    await DB.deattachArtifactFromProcessInstance('dummy1', 'instance-1', 'truck1')
-    const data1 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected1 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: [],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
-    expect(data1).toEqual(expected1)
-
-    await DB.attachArtifactToProcessInstance('dummy1', 'instance-1', 'truck/instance-1')
-    await DB.attachArtifactToProcessInstance('dummy1', 'instance-1', 'truck/instance-2')
-
-    const data2 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected2 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: ['truck/instance-1', 'truck/instance-2'],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
-    expect(data2).toEqual(expected2)
-
-    await DB.deattachArtifactFromProcessInstance('dummy1', 'instance-1', 'truck/instance-1')
-    const data3 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected3 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: ['truck/instance-2'],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
-    expect(data3).toEqual(expected3)
-
-    await DB.deattachArtifactFromProcessInstance('dummy1', 'instance-1', 'truck/instance-3')
-    const data4 = await DB.readProcessInstance('dummy1', 'instance-1')
-    expect(data4).toEqual(expected3)
-
-    await DB.deattachArtifactFromProcessInstance('dummy1', 'instance-1', 'truck/instance-2')
-    const data5 = await DB.readProcessInstance('dummy1', 'instance-1')
-    var expected5 = {
-        processtype: 'dummy1',
-        instanceid: 'instance-1',
-        startingtime: 1000,
-        endingtime: -1,
-        status: 'ongoing',
-        stakeholders: ['stakeholder1', 'stakeholder2', 'stakeholder3'],
-        attached: [],
-        host: 'localhost',
-        port: 1883,
-        outcome: 'NA'
-    }
-    expect(data5).toEqual(expected5)
-
-})
-
-
 test('[writeNewStakeholder][readStakeholder][WRITE AND READ]', async () => {
     await DB.writeNewStakeholder('company1', 'mqtt')
     const data1 = await DB.readStakeholder('company1')
-    var expected1 = {
-        id: 'company1',
-        notificationdetails: 'mqtt'
-    }
+    var expected1 = new Stakeholder('company1', 'mqtt')
     expect(data1).toEqual(expected1)
 
     //Try to read undefined
@@ -848,14 +522,45 @@ test('[writeNewStakeholder][readStakeholder][WRITE AND READ]', async () => {
     expect(data2).toEqual(expected2)
 })
 
+test('[readAllStakeholder][WRITE AND READ]', async () => {
+    await DB.writeNewStakeholder('company1', 'mqtt')
+    await DB.writeNewStakeholder('company2', 'mqtt')
+    await DB.writeNewStakeholder('company3', 'mqtt')
+    await DB.writeNewStakeholder('company4', 'mqtt')
+
+    data = await DB.readAllStakeholder()
+    var expected = [
+        new Stakeholder('company1', 'mqtt'),
+        new Stakeholder('company2', 'mqtt'),
+        new Stakeholder('company3', 'mqtt'),
+        new Stakeholder('company4', 'mqtt')
+    ]
+    data.sort((a, b) => {
+        if (a.name < b.name) {
+            return -1;
+        }
+        if (a.name > b.name) {
+            return 1;
+        }
+        return 0;
+    })
+    expected.sort((a, b) => {
+        if (a.name < b.name) {
+            return -1;
+        }
+        if (a.name > b.name) {
+            return 1;
+        }
+        return 0;
+    })
+    expect(data).toEqual(expected)
+})
+
 test('[writeNewProcessGroup][readProcessGroup][WRITE AND READ]', async () => {
     //Define process group with non-empty process list and read back and no type definition
-    await DB.writeNewProcessGroup('group-1',{rule:'rule-1'})
+    await DB.writeNewProcessGroup('group-1', { PROCESS_TYPE: 'rule-1' })
     const data1 = await DB.readProcessGroup('group-1')
-    var expected1 = {
-        name: 'group-1',
-        membership_rules: {rule:'rule-1'}
-    }
+    var expected1 = new ProcessGroup('group-1', { PROCESS_TYPE: 'rule-1' })
     expect(data1).toEqual(expected1)
 
     //Try to read non-defined process group
@@ -865,77 +570,26 @@ test('[writeNewProcessGroup][readProcessGroup][WRITE AND READ]', async () => {
 })
 
 test('[writeStageEvent][WRITE AND READ]', async () => {
-    var stageLog1 = {
-        processid: 'dummy/instance-1',
-        eventid: '0001',
-        timestamp: 10001,
-        stagename: 'Stage-1',
-        status: 'onTime',
-        state: 'Opened',
-        compliance: 'Compliant'
-    }
-
+    var stageLog1 = new StageEvent('dummy', 'instance-1', 'Truck', '0001', 10001, 'Stage-1', 'Regular', 'Opened', 'onTime')
     await DB.writeStageEvent(stageLog1)
-
-    var stageLog2 = {
-        processid: 'dummy/instance-1',
-        eventid: '0002',
-        timestamp: 10003,
-        stagename: 'Stage-2',
-        status: 'onTime',
-        state: 'Opened',
-        compliance: 'Compliant'
-    }
+    var stageLog2 = new StageEvent('dummy', 'instance-1', 'Truck', '0002', 10003, 'Stage-2', 'Regular', 'Opened', 'OutOfOrder')
 
     await DB.writeStageEvent(stageLog2)
 
-    var pk = { name: 'PROCESS_NAME', value: 'dummy/instance-1' }
+    var pk = { name: 'PROCESS_NAME', value: 'dummy/instance-1__Truck' }
     var sk = { name: 'EVENT_ID', value: '0001' }
     const data = await DYNAMO.readItem('STAGE_EVENT', pk, sk)
     var expected = {
         Item: {
-            PROCESS_NAME: { S: 'dummy/instance-1' },
+            PROCESS_NAME: { S: 'dummy/instance-1__Truck' },
+            PERSPECTIVE: { S: 'Truck' },
             EVENT_ID: { S: '0001' },
             TIMESTAMP: { N: '10001' },
             STAGE_NAME: { S: 'Stage-1' },
-            STAGE_STATUS: { S: 'onTime' },
+            STAGE_STATUS: { S: 'Regular' },
             STAGE_STATE: { S: 'Opened' },
-            STAGE_COMPLIANCE: { S: 'Compliant' }
+            STAGE_COMPLIANCE: { S: 'onTime' }
         }
     }
-    expect(data).toEqual(expected)
-})
-
-
-test('[readAllStakeholder][WRITE AND READ]', async () => {
-    await DB.writeNewStakeholder('company1', 'mqtt')
-    await DB.writeNewStakeholder('company2', 'mqtt')
-    await DB.writeNewStakeholder('company3', 'mqtt')
-    await DB.writeNewStakeholder('company4', 'mqtt')
-
-    data = await DB.readAllStakeholder()
-    var expected = [{ id: 'company1', notificationdetails: 'mqtt' },
-    { id: 'company2', notificationdetails: 'mqtt' },
-    { id: 'company3', notificationdetails: 'mqtt' },
-    { id: 'company4', notificationdetails: 'mqtt' }
-    ]
-    data.sort((a, b) => {
-        if (a.id < b.id) {
-            return -1;
-        }
-        if (a.id > b.id) {
-            return 1;
-        }
-        return 0;
-    })
-    expected.sort((a, b) => {
-        if (a.id < b.id) {
-            return -1;
-        }
-        if (a.id > b.id) {
-            return 1;
-        }
-        return 0;
-    })
     expect(data).toEqual(expected)
 })
