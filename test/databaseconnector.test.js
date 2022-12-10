@@ -5,7 +5,7 @@ var AUX = require('../auxiliary/auxiliary')
 
 var DYNAMO = require('../database/dynamoconnector')
 var DB = require('../database/databaseconnector');
-const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, StageEvent } = require('../auxiliary/primitives');
+const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, StageEvent, FaultyRateWindow } = require('../auxiliary/primitives');
 
 async function initTables() {
     var promises = []
@@ -71,14 +71,14 @@ test('[writeNewArtifactDefinition] [WRITE AND READ]', async () => {
 test('[writeNewArtifactDefinition] [readArtifactDefinition]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
     const data = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected = new Artifact('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], {}, {}, 'localhost', '1883')
+    var expected = new Artifact('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], new Map(), new Map(), 'localhost', '1883')
     expect(data).toEqual(expected)
 })
 
 test('[writeNewArtifactDefinition] [readArtifactDefinition] [not found]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
     const data = await DB.readArtifactDefinition('truck', 'instance-1')
-    var expected = new Artifact('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], {}, {}, 'localhost', '1883')
+    var expected = new Artifact('truck', 'instance-1', ['Best Truck Company', 'Maintainer Company'], new Map(), new Map(), 'localhost', '1883')
     expect(data).toEqual(expected)
 })
 
@@ -103,191 +103,68 @@ test('[addNewFaultyRateWindow] [WRITE AND READ]', async () => {
     await DB.writeNewArtifactDefinition('truck', 'instance-2', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
     //Defining a new Faulty Rate Window
     await DB.addNewFaultyRateWindow('truck', 'instance-2', 10)
-    var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
-    var sk = { name: 'ARTIFACT_ID', value: 'instance-2' }
-    const data = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATES.w10')
+    await DB.addNewFaultyRateWindow('truck', 'instance-2', 15)
 
-    var expected = {
-        Item: {
-            FAULTY_RATES: {
-                M: {
-                    w10: {
-                        L: []
-                    }
-                }
-            }
-        }
-    }
-    expect(data).toEqual(expected)
+    const data = await DB.readArtifactDefinition('truck', 'instance-2')
 
-    const data2 = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATE_10')
-    var expected2 = {
-        Item: {
-            FAULTY_RATE_10: {
-                N: '-1'
-            }
-        }
-    }
-    expect(data2).toEqual(expected2)
+    expect(data.faulty_rates.get(10).value).toEqual(-1)
+    expect(data.faulty_rates.get(10).window_size).toEqual(10)
+    expect(data.faulty_rates.get(10).earliest_usage_entry_time).toEqual(-1)
 })
 
-test('[addArtifactFaultyRateToWindow] [WRITE AND READ]', async () => {
+test('[updateArtifactFaultyRate] [WRITE AND READ]', async () => {
     //Adding a new Artifact
     await DB.writeNewArtifactDefinition('truck', 'instance-2', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
 
     //Defining a new Faulty Rate Window
     await DB.addNewFaultyRateWindow('truck', 'instance-2', 10)
-
-    //Adding the first faulty rate to the prepared data structures
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-2', 10, 1000, 25.254, 'case_123')
-
-    var pk = { name: 'ARTIFACT_TYPE', value: 'truck' }
-    var sk = { name: 'ARTIFACT_ID', value: 'instance-2' }
-    const data = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATES.w10')
-
-    var expected = {
-        Item: {
-            FAULTY_RATES: {
-                M: {
-                    w10: {
-                        L: [{ L: [{ S: 'case_123' }, { N: '1000' }, { N: '25.254' }] }]
-                    }
-                }
-            }
-        }
-    }
-    expect(data).toEqual(expected)
-
-    const data2 = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATE_10')
-    var expected2 = {
-        Item: {
-            FAULTY_RATE_10: {
-                N: '25.254'
-            }
-        }
-    }
-    expect(data2).toEqual(expected2)
-
-    //Adding a second value to the same window
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-2', 10, 1100, 15.15, 'case_321')
-
-    const data3 = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATES.w10')
-
-    var expected3 = {
-        Item: {
-            FAULTY_RATES: {
-                M: {
-                    w10: {
-                        L: [{ L: [{ S: 'case_123' }, { N: '1000' }, { N: '25.254' }] },
-                        { L: [{ S: 'case_321' }, { N: '1100' }, { N: '15.15' }] }]
-                    }
-                }
-            }
-        }
-    }
-    expect(data3).toEqual(expected3)
-
-    const data4 = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATE_10')
-    var expected4 = {
-        Item: {
-            FAULTY_RATE_10: {
-                N: '15.15'
-            }
-        }
-    }
-    expect(data4).toEqual(expected4)
-
-    //Adding a second window
-    //Defining a new Faulty Rate Window
     await DB.addNewFaultyRateWindow('truck', 'instance-2', 20)
 
     //Adding the first faulty rate to the prepared data structures
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-2', 20, 2000, 99.99, 'case_555')
+    var updateObj = new FaultyRateWindow(10, 55, 1000, 10)
+    await DB.updateArtifactFaultyRate('truck', 'instance-2', updateObj)
 
-    const data5 = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATES')
+    var updateObj2 = new FaultyRateWindow(20, 35, 1500, 5)
+    await DB.updateArtifactFaultyRate('truck', 'instance-2', updateObj2)
 
-    var expected5 = {
-        Item: {
-            FAULTY_RATES: {
-                M: {
-                    w10: {
-                        L: [{ L: [{ S: 'case_123' }, { N: '1000' }, { N: '25.254' }] },
-                        { L: [{ S: 'case_321' }, { N: '1100' }, { N: '15.15' }] }]
-                    },
-                    w20: {
-                        L: [{ L: [{ S: 'case_555' }, { N: '2000' }, { N: '99.99' }] }]
-                    }
-                }
-            }
-        }
-    }
-    expect(data5).toEqual(expected5)
+    const data1 = await DB.readArtifactDefinition('truck', 'instance-2')
+    expect(data1.faulty_rates.get(10).value).toEqual(55)
+    expect(data1.faulty_rates.get(10).window_size).toEqual(10)
+    expect(data1.faulty_rates.get(10).earliest_usage_entry_time).toEqual(10)
+    expect(data1.faulty_rates.get(10).updated).toEqual(1000)
 
-    const data6 = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, 'FAULTY_RATE_20')
-    var expected6 = {
-        Item: {
-            FAULTY_RATE_20: {
-                N: '99.99'
-            }
-        }
-    }
-    expect(data6).toEqual(expected6)
+    const data2 = await DB.readArtifactDefinition('truck', 'instance-2')
+    expect(data2.faulty_rates.get(20).value).toEqual(35)
+    expect(data2.faulty_rates.get(20).window_size).toEqual(20)
+    expect(data2.faulty_rates.get(20).earliest_usage_entry_time).toEqual(5)
+    expect(data2.faulty_rates.get(20).updated).toEqual(1500)
 })
 
 
-test('[getArtifactFaultyRateValues] [WRITE AND READ]', async () => {
+test('[getArtifactFaultyRateValue] [WRITE AND READ]', async () => {
+
     //Adding a new Artifact
     await DB.writeNewArtifactDefinition('truck', 'instance-2', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
 
     //Defining a new Faulty Rate Window
     await DB.addNewFaultyRateWindow('truck', 'instance-2', 10)
+    await DB.addNewFaultyRateWindow('truck', 'instance-2', 20)
 
     //Adding the first faulty rate to the prepared data structures
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-2', 10, 1000, 25.254, 'case_123')
+    var updateObj = new FaultyRateWindow(10, 55, 1000, 10)
+    await DB.updateArtifactFaultyRate('truck', 'instance-2', updateObj)
 
-    const data = await DB.getArtifactFaultyRateValues('truck', 'instance-2', 10)
+    var updateObj2 = new FaultyRateWindow(20, 35, 1500, 5)
+    await DB.updateArtifactFaultyRate('truck', 'instance-2', updateObj2)
 
-    var expected = [{ case_id: 'case_123', timestamp: 1000, faulty_rate: 25.254 }]
-    expect(data).toEqual(expected)
+    var updateObj3 = new FaultyRateWindow(10, 80, 1200, 15)
+    await DB.updateArtifactFaultyRate('truck', 'instance-2', updateObj3)
 
-    //Adding a second entry
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-2', 10, 2000, 99.99, 'case_555')
-
-    const data2 = await DB.getArtifactFaultyRateValues('truck', 'instance-2', 10)
-
-    var expected2 = [{ case_id: 'case_123', timestamp: 1000, faulty_rate: 25.254 },
-    { case_id: 'case_555', timestamp: 2000, faulty_rate: 99.99 }]
-    expect(data2).toEqual(expected2)
-})
-
-
-test('[getArtifactFaultyRateLatest] [WRITE AND READ]', async () => {
-    //Adding a new Artifact
-    await DB.writeNewArtifactDefinition('truck', 'instance-3', ['Best Truck Company', 'Maintainer Company'], 'localhost', 1883)
-
-    //Defining a new Faulty Rate Window
-    await DB.addNewFaultyRateWindow('truck', 'instance-3', 10)
-
-    const data = await DB.getArtifactFaultyRateLatest('truck', 'instance-3', 10)
-
-    var expected = -1
-    expect(data).toEqual(expected)
-
-    //Adding the first faulty rate to the prepared data structures
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-3', 10, 1000, 25.254, 'case_123')
-
-    const data1 = await DB.getArtifactFaultyRateLatest('truck', 'instance-3', 10)
-
-    var expected1 = 25.254
-    expect(data1).toEqual(expected1)
-
-    //Adding a second entry
-    await DB.addArtifactFaultyRateToWindow('truck', 'instance-3', 10, 2000, 99.99, 'case_555')
-
-    const data2 = await DB.getArtifactFaultyRateLatest('truck', 'instance-3', 10)
-
-    var expected2 = 99.99
-    expect(data2).toEqual(expected2)
+    const data1 = await DB.getArtifactFaultyRateValue('truck', 'instance-2', 10)
+    expect(data1.value).toEqual(80)
+    expect(data1.window_size).toEqual(10)
+    expect(data1.earliest_usage_entry_time).toEqual(15)
+    expect(data1.updated).toEqual(1200)
 })
 
 

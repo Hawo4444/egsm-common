@@ -103,6 +103,15 @@ class StageEvent {
     }
 }
 
+class FaultyRateWindow {
+    constructor(windowsize, value, updated, earliestusageentrytime) {
+        this.window_size = windowsize
+        this.value = value
+        this.updated = updated
+        this.earliest_usage_entry_time = earliestusageentrytime
+    }
+}
+
 /*class Message {
     constructor(sessionid, type, payload) {
         this.session_id = sessionid
@@ -122,6 +131,8 @@ module.exports = {
     Stakeholder,
     ProcessGroup,
     StageEvent,
+    FaultyRateWindow,
+
 
 
 

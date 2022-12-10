@@ -2,7 +2,7 @@ var UUID = require("uuid");
 
 var DYNAMO = require('./dynamoconnector')
 var LOG = require('../auxiliary/logManager');
-const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup } = require('../auxiliary/primitives')
+const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, FaultyRateWindow } = require('../auxiliary/primitives')
 
 module.id = 'DB-CONNECTOR'
 
@@ -41,6 +41,15 @@ async function readArtifactDefinition(artifactType, artifactId) {
             data.Item?.TIMING_FAULTY_RATES.M,
             data.Item?.HOST.S,
             data.Item?.PORT.N)
+        //Change keys of faulty_rates map
+        var faultyRatesMap = new Map()
+        Object.keys(final.faulty_rates).forEach(function (key, index) {
+            var origKey = key
+            var newKey = key.replace('w', '')
+            faultyRatesMap.set(Number(newKey), JSON.parse(final.faulty_rates[origKey].S))
+        });
+        final.faulty_rates = faultyRatesMap
+        final.timing_faulty_rates = new Map()
     }
     return final
 }
@@ -73,27 +82,17 @@ async function getArtifactStakeholders(artifactType, artifactId) {
 async function addNewFaultyRateWindow(artifactType, artifactId, window) {
     var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
     var sk = { name: 'ARTIFACT_ID', value: artifactId }
-
-    await DYNAMO.initNestedList('ARTIFACT_DEFINITION', pk, sk, `FAULTY_RATES.w${window.toString()}`)
-
-    var attributes = []
-    attributes.push({ name: `FAULTY_RATE_${window.toString()}`, type: 'N', value: '-1' })
-    return await DYNAMO.updateItem('ARTIFACT_DEFINITION', pk, sk, attributes)
+    var newItem = new FaultyRateWindow(window, -1, Date.now() / 1000, -1)
+    return await DYNAMO.setMapElement('ARTIFACT_DEFINITION', pk, sk, `FAULTY_RATES.w${window.toString()}`, { S: JSON.stringify(newItem) })
 }
 
-async function addArtifactFaultyRateToWindow(artifactType, artifactId, window, timestamp, faultyrate, lastcaseid) {
+async function updateArtifactFaultyRate(artifactType, artifactId, newfaultyratewindowobj) {
     var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
     var sk = { name: 'ARTIFACT_ID', value: artifactId }
-    var item = { type: 'L', value: [{ 'S': lastcaseid }, { 'N': timestamp.toString() }, { 'N': faultyrate.toString() }] }
-
-    const result = await DYNAMO.appendNestedListItem('ARTIFACT_DEFINITION', pk, sk, `FAULTY_RATES.w${window.toString()}`, [item])
-    var attributes = []
-    attributes.push({ name: `FAULTY_RATE_${window.toString()}`, type: 'N', value: `${faultyrate}` })
-    await DYNAMO.updateItem('ARTIFACT_DEFINITION', pk, sk, attributes)
-    return result
+    return await DYNAMO.setMapElement('ARTIFACT_DEFINITION', pk, sk, `FAULTY_RATES.w${newfaultyratewindowobj.window_size.toString()}`, { S: JSON.stringify(newfaultyratewindowobj) })
 }
 
-async function getArtifactFaultyRateValues(artifactType, artifactId, window) {
+async function getArtifactFaultyRateValue(artifactType, artifactId, window) {
     var keyexpression = 'ARTIFACT_TYPE = :a and ARTIFACT_ID = :b'
     var expressionattributevalues = {
         ':a': { S: artifactType },
@@ -101,24 +100,10 @@ async function getArtifactFaultyRateValues(artifactType, artifactId, window) {
     }
     var projectionexpression = `FAULTY_RATES.w${window.toString()}`
     const result = await DYNAMO.query('ARTIFACT_DEFINITION', keyexpression, expressionattributevalues, undefined, projectionexpression)
-    var final = []
-    var list = result[0]['FAULTY_RATES']['M'][`w${window.toString()}`]['L']
-    for (var i in list) {
-        final.push({
-            case_id: list[i]['L'][0]['S'],
-            timestamp: Number(list[i]['L'][1]['N']),
-            faulty_rate: Number(list[i]['L'][2]['N']),
-        })
+    if (result.length > 0) {
+        return JSON.parse(result[0].FAULTY_RATES.M[`w${window}`].S)
     }
-    return final
-}
-
-async function getArtifactFaultyRateLatest(artifactType, artifactId, window) {
-    var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
-    var sk = { name: 'ARTIFACT_ID', value: artifactId }
-    const result = await DYNAMO.readItem('ARTIFACT_DEFINITION', pk, sk, `FAULTY_RATE_${window}`)
-    var final = Number(result['Item'][`FAULTY_RATE_${window.toString()}`]['N'])
-    return final
+    return undefined
 }
 
 //Time faulty rate-related functions
@@ -399,9 +384,8 @@ module.exports = {
     readArtifactDefinition: readArtifactDefinition,
     getArtifactStakeholders: getArtifactStakeholders,
     addNewFaultyRateWindow: addNewFaultyRateWindow,
-    getArtifactFaultyRateLatest: getArtifactFaultyRateLatest,
-    addArtifactFaultyRateToWindow: addArtifactFaultyRateToWindow,
-    getArtifactFaultyRateValues: getArtifactFaultyRateValues,
+    updateArtifactFaultyRate: updateArtifactFaultyRate,
+    getArtifactFaultyRateValue: getArtifactFaultyRateValue,
 
     //[ARTIFACT_USAGE] operations
     writeArtifactUsageEntry: writeArtifactUsageEntry,
