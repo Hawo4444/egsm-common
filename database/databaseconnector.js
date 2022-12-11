@@ -82,7 +82,7 @@ async function getArtifactStakeholders(artifactType, artifactId) {
 async function addNewFaultyRateWindow(artifactType, artifactId, window) {
     var pk = { name: 'ARTIFACT_TYPE', value: artifactType }
     var sk = { name: 'ARTIFACT_ID', value: artifactId }
-    var newItem = new FaultyRateWindow(window, -1, Date.now() / 1000, -1)
+    var newItem = new FaultyRateWindow(window, -1, Math.floor(Date.now() / 1000), -1)
     return await DYNAMO.setMapElement('ARTIFACT_DEFINITION', pk, sk, `FAULTY_RATES.w${window.toString()}`, { S: JSON.stringify(newItem) })
 }
 
