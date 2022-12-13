@@ -1,8 +1,11 @@
+var UUID = require('uuid');
+
 module.id = "PRIM"
 
 class Perspective {
-    constructor(name, egsm_model, info_model, bindings) {
+    constructor(name, bpmn_diagram, egsm_model, info_model, bindings) {
         this.name = name
+        this.bpmn_diagram = bpmn_diagram
         this.egsm_model = egsm_model
         this.info_model = info_model
         this.bindings = bindings
@@ -112,6 +115,36 @@ class FaultyRateWindow {
     }
 }
 
+class Notification {
+    constructor(sourcejob, notified, type, message) {
+        this.id = UUID.v4()
+        this.timestamp = Math.floor(Date.now() / 1000)
+        this.source_job = sourcejob
+        this.source_aggregator = 'AGGREGATOR_'
+        this.notified = notified
+        this.type = type
+        this.message = message
+    }
+}
+
+class ArtifactNotification extends Notification {
+    constructor(sourcejob, notified, type, message, artifact_type, artifactid) {
+        super(sourcejob, notified, type, message)
+        this.artifact_type = artifact_type
+        this.artifact_id = artifactid
+    }
+}
+
+class ProcessNotification extends Notification {
+    constructor(sourcejob, notified, type, message, processtype, instanceid, perspective, processgroupmembers) {
+        super(sourcejob, notified, type, message)
+        this.process_type = processtype
+        this.instance_id = instanceid
+        this.perspective = perspective
+        this.processgroupmembers = processgroupmembers
+    }
+}
+
 /*class Message {
     constructor(sessionid, type, payload) {
         this.session_id = sessionid
@@ -132,6 +165,8 @@ module.exports = {
     ProcessGroup,
     StageEvent,
     FaultyRateWindow,
+    ArtifactNotification,
+    ProcessNotification,
 
 
 
