@@ -22,12 +22,6 @@ class ProcessType {
     }
 }
 
-class ConnectionConfig {
-    constructor(broker) {
-        this.broker = broker
-    }
-}
-
 class Artifact {
     constructor(type, id, stakeholders, faulty_rates, timing_faulty_rates, host, port) {
         this.type = type
@@ -116,11 +110,11 @@ class FaultyRateWindow {
 }
 
 class Notification {
-    constructor(sourcejob, type, message, errors) {
+    constructor(sourcejob,sourceaggregator, type, message, errors) {
         this.id = UUID.v4()
         this.timestamp = Math.floor(Date.now() / 1000)
         this.source_job = sourcejob
-        this.source_aggregator = 'AGGREGATOR_'
+        this.source_aggregator = sourceaggregator
         this.notified = []
         this.type = type
         this.message = message
@@ -129,16 +123,16 @@ class Notification {
 }
 
 class ArtifactNotification extends Notification {
-    constructor(sourcejob, message, artifact_type, artifactid, errors) {
-        super(sourcejob, 'artifact', message, errors)
+    constructor(sourcejob,sourceaggregator, message, artifact_type, artifactid, errors) {
+        super(sourcejob,sourceaggregator, 'artifact', message, errors)
         this.artifact_type = artifact_type
         this.artifact_id = artifactid
     }
 }
 
 class ProcessNotification extends Notification {
-    constructor(sourcejob, message, processtype, instanceid, perspective, processgroupmembers, errors) {
-        super(sourcejob, 'process', message, errors)
+    constructor(sourcejob,sourceaggregator, message, processtype, instanceid, perspective, processgroupmembers, errors) {
+        super(sourcejob,sourceaggregator, 'process', message, errors)
         this.process_type = processtype
         this.instance_id = instanceid
         this.perspective = perspective
@@ -149,7 +143,6 @@ class ProcessNotification extends Notification {
 module.exports = {
     Perspective,
     ProcessType,
-    ConnectionConfig,
     Artifact,
     ArtifactEvent,
     ArtifactUsageEntry,
@@ -174,36 +167,5 @@ module.exports = {
             username: username,
             password: password
         }
-    },
-
-    Engine(engineid, brokers, default_broker) {
-        return {
-            engineid: engineid,
-            brokers: brokers,
-            default_broker: default_broker,
-        }
-    },
-
-    Worker: function (workerid, capacity, host, port) {
-        return {
-            id: workerid,
-            capacity: capacity,
-            host: host,
-            port: port,
-            engines: [],
-            brokerconnections: []
-        }
-    },
-
-    Agent: function (agentid, host, port) {
-        return {
-            id: agentid,
-            host: host,
-            port: port,
-            processClasses: [],
-            processes: []
-        }
-    },
-
-
+    }
 }
