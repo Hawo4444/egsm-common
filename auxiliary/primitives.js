@@ -116,42 +116,35 @@ class FaultyRateWindow {
 }
 
 class Notification {
-    constructor(sourcejob, notified, type, message) {
+    constructor(sourcejob, type, message, errors) {
         this.id = UUID.v4()
         this.timestamp = Math.floor(Date.now() / 1000)
         this.source_job = sourcejob
         this.source_aggregator = 'AGGREGATOR_'
-        this.notified = notified
+        this.notified = []
         this.type = type
         this.message = message
+        this.errors = errors
     }
 }
 
 class ArtifactNotification extends Notification {
-    constructor(sourcejob, notified, type, message, artifact_type, artifactid) {
-        super(sourcejob, notified, type, message)
+    constructor(sourcejob, message, artifact_type, artifactid, errors) {
+        super(sourcejob, 'artifact', message, errors)
         this.artifact_type = artifact_type
         this.artifact_id = artifactid
     }
 }
 
 class ProcessNotification extends Notification {
-    constructor(sourcejob, notified, type, message, processtype, instanceid, perspective, processgroupmembers) {
-        super(sourcejob, notified, type, message)
+    constructor(sourcejob, message, processtype, instanceid, perspective, processgroupmembers, errors) {
+        super(sourcejob, 'process', message, errors)
         this.process_type = processtype
         this.instance_id = instanceid
         this.perspective = perspective
         this.processgroupmembers = processgroupmembers
     }
 }
-
-/*class Message {
-    constructor(sessionid, type, payload) {
-        this.session_id = sessionid
-        this.type = type
-        this.payload = payload
-    }
-}*/
 
 module.exports = {
     Perspective,
