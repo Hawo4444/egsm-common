@@ -110,33 +110,34 @@ class FaultyRateWindow {
 }
 
 class Notification {
-    constructor(sourcejob,sourceaggregator, type, message, errors) {
+    constructor(sourcejob, sourceaggregator, type, job_type, message, errors) {
         this.id = UUID.v4()
         this.timestamp = Math.floor(Date.now() / 1000)
         this.source_job = sourcejob
         this.source_aggregator = sourceaggregator
         this.notified = []
         this.type = type
+        this.job_type = job_type
         this.message = message
         this.errors = errors
     }
 }
 
 class ArtifactNotification extends Notification {
-    constructor(sourcejob,sourceaggregator, message, artifact_type, artifactid, errors) {
-        super(sourcejob,sourceaggregator, 'artifact', message, errors)
+    constructor(sourcejob, sourceaggregator, job_type, message, artifact_type, artifactid, errors) {
+        super(sourcejob, sourceaggregator, 'artifact', job_type, message, errors)
         this.artifact_type = artifact_type
         this.artifact_id = artifactid
     }
 }
 
 class ProcessNotification extends Notification {
-    constructor(sourcejob,sourceaggregator, message, processtype, instanceid, perspective, processgroupmembers, errors) {
-        super(sourcejob,sourceaggregator, 'process', message, errors)
+    constructor(sourcejob, sourceaggregator, job_type, message, processtype, instanceid, /*perspective, processgroupmembers,*/ errors) {
+        super(sourcejob, sourceaggregator, 'process', job_type, message, errors)
         this.process_type = processtype
         this.instance_id = instanceid
-        this.perspective = perspective
-        this.processgroupmembers = processgroupmembers
+        //this.perspective = perspective
+        //this.processgroupmembers = processgroupmembers
     }
 }
 
@@ -153,10 +154,6 @@ module.exports = {
     FaultyRateWindow,
     ArtifactNotification,
     ProcessNotification,
-
-
-
-
 
 
 

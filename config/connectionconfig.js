@@ -9,6 +9,9 @@ module.id = "CONFIG"
 valid = false
 primary_broker = undefined
 
+socket_host = undefined
+socket_port = undefined
+
 database_host = undefined
 database_port = undefined
 database_region = undefined
@@ -65,6 +68,11 @@ function setSelfId(id) {
     self_id = id
 }
 
+function setSocketaddress(host, port) {
+    socket_host = host
+    socket_port = port
+}
+
 function getConfig() {
     return {
         valid: valid,
@@ -74,12 +82,15 @@ function getConfig() {
         database_region: database_region,
         database_access_key_id: database_access_key_id,
         database_secret_access_key: database_secret_access_key,
-        self_id: self_id
+        self_id: self_id,
+        socket_host: socket_host,
+        socket_port: socket_port
     }
 }
 
 module.exports = {
     applyConfig: applyConfig,
     setSelfId: setSelfId,
+    setSocketaddress: setSocketaddress,
     getConfig: getConfig,
 }
