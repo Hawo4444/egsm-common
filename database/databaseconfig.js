@@ -53,16 +53,8 @@ async function deleteTables() {
     await Promise.all(promises)
 }
 
-function exportProcessLibraryToDatabase() {
-    var processes = LIBRARY.getProcessTypeList()
-    processes.forEach(process => {
-        DB.writeNewProcessType(LIBRARY.getProcessType(process.process_type_name))
-    });
-}
-
 module.exports = {
     initDatabaseConnection: initDatabaseConnection,
     initTables: initTables,
     deleteTables: deleteTables,
-    exportProcessLibraryToDatabase: exportProcessLibraryToDatabase
 }
