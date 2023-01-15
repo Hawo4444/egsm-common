@@ -1,6 +1,5 @@
 var DYNAMO = require('../database/dynamoconnector')
 var DB = require('../database/databaseconnector')
-var LIBRARY = require('../../resourcemanager/processlibrary')
 
 //const DATABASE_HOST = 'localhost'
 //const DATABASE_PORT = '9000'
