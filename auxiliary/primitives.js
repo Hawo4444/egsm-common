@@ -3,12 +3,13 @@ var UUID = require('uuid');
 module.id = "PRIM"
 
 class Perspective {
-    constructor(name, bpmn_diagram, egsm_model, info_model, bindings) {
+    constructor(name, bpmn_diagram, egsm_model, info_model, bindings, egsm_stages) {
         this.name = name
         this.bpmn_diagram = bpmn_diagram
         this.egsm_model = egsm_model
         this.info_model = info_model
         this.bindings = bindings
+        this.egsm_stages = egsm_stages
     }
 }
 

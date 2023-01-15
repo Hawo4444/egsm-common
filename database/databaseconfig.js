@@ -1,4 +1,6 @@
 var DYNAMO = require('../database/dynamoconnector')
+var DB = require('../database/databaseconnector')
+var LIBRARY = require('../../resourcemanager/processlibrary')
 
 //const DATABASE_HOST = 'localhost'
 //const DATABASE_PORT = '9000'
@@ -10,15 +12,14 @@ var tables = [
     { name: 'ARTIFACT_DEFINITION', pk: 'ARTIFACT_TYPE', sk: 'ARTIFACT_ID' },
     { name: 'ARTIFACT_USAGE', pk: 'ARTIFACT_NAME', sk: 'CASE_ID' },
     { name: 'ARTIFACT_EVENT', pk: 'ARTIFACT_NAME', sk: 'EVENT_ID', secondaryindex: { indexname: 'PROCESSED_INDEX', pk: { name: 'ENTRY_PROCESSED', type: 'N' } } },
-    { name: 'PROCESS_TYPE', pk: 'PROCESS_TYPE_NAME', sk: undefined },
+    { name: 'PROCESS_TYPE', pk: 'PROCESS_TYPE_NAME', sk: undefined, },
     { name: 'STAKEHOLDERS', pk: 'STAKEHOLDER_ID', sk: undefined },
     { name: 'PROCESS_INSTANCE', pk: 'PROCESS_TYPE_NAME', sk: 'INSTANCE_ID' },
     { name: 'PROCESS_GROUP_DEFINITION', pk: 'NAME', sk: undefined },
-
     { name: 'STAGE_EVENT', pk: 'PROCESS_NAME', sk: 'EVENT_ID' },
 ]
 
-function initDatabaseConnection(host, port,region, accesskeyid, secretaccesskey) {
+function initDatabaseConnection(host, port, region, accesskeyid, secretaccesskey) {
     DYNAMO.initDynamo(accesskeyid, secretaccesskey, region, 'http://' + host + ':' + port)
 }
 
@@ -52,8 +53,16 @@ async function deleteTables() {
     await Promise.all(promises)
 }
 
+function exportProcessLibraryToDatabase() {
+    var processes = LIBRARY.getProcessTypeList()
+    processes.forEach(process => {
+        DB.writeNewProcessType(LIBRARY.getProcessType(process.process_type_name))
+    });
+}
+
 module.exports = {
     initDatabaseConnection: initDatabaseConnection,
     initTables: initTables,
-    deleteTables: deleteTables
+    deleteTables: deleteTables,
+    exportProcessLibraryToDatabase: exportProcessLibraryToDatabase
 }

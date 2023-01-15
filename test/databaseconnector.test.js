@@ -5,7 +5,7 @@ var AUX = require('../auxiliary/auxiliary')
 
 var DYNAMO = require('../database/dynamoconnector')
 var DB = require('../database/databaseconnector');
-const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, StageEvent, FaultyRateWindow } = require('../auxiliary/primitives');
+const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, StageEvent, FaultyRateWindow, ProcessType, Perspective } = require('../auxiliary/primitives');
 
 async function initTables() {
     var promises = []
@@ -319,35 +319,123 @@ test('[writeArtifactUsageEntry][deleteArtifactUsageEntries] [WRITE AND DELETE]',
 
 test('[writeNewProcessType][WRITE AND READ]', async () => {
 
-    await DB.writeNewProcessType('dummy', 'egsm', 'egsm_model', 'bpmn')
-    var pk = { name: 'PROCESS_TYPE_NAME', value: 'dummy' }
-    var data1 = await DYNAMO.readItem('PROCESS_TYPE', pk)
+    var perspective1 = new Perspective('pers-1', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-1', 'egsm-2'])
+    var perspective2 = new Perspective('pers-2', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-3', 'egsm-4'])
+    var processType = new ProcessType('type-1', ['Stakeholder-1'], 'Desc-1', 'BPMN', [perspective1, perspective2])
+    await DB.writeNewProcessType(processType)
+    var data1 = await DB.readProcessType('type-1')
     var expected1 = {
-        Item: {
-            PROCESS_TYPE_NAME: { S: 'dummy' },
-            EGSM_INFO: { S: 'egsm' },
-            EGSM_MODEL: { S: 'egsm_model' },
-            BPMN_MODEL: { S: 'bpmn' }
+        process_type: 'type-1',
+        definition: processType,
+        instance_cnt: 0,
+        bpmn_job_cnt: 0,
+        statistics: {
+            'pers-1': {
+                'egsm-1': {
+                    regular: 0,
+                    faulty: 0,
+                    unopened: 0,
+                    opened: 0,
+                    skipped: 0,
+                    ontime: 0,
+                    outoforder: 0,
+                    skipdeviation_skipped: 0,
+                    skipdeviation_outoforder: 0,
+                    flow_violation: 0,
+                    incomplete_execution: 0,
+                    multi_execution: 0
+                },
+                'egsm-2': {
+                    regular: 0,
+                    faulty: 0,
+                    unopened: 0,
+                    opened: 0,
+                    skipped: 0,
+                    ontime: 0,
+                    outoforder: 0,
+                    skipdeviation_skipped: 0,
+                    skipdeviation_outoforder: 0,
+                    flow_violation: 0,
+                    incomplete_execution: 0,
+                    multi_execution: 0
+                }
+
+            },
+            'pers-2': {
+                'egsm-3': {
+                    regular: 0,
+                    faulty: 0,
+                    unopened: 0,
+                    opened: 0,
+                    skipped: 0,
+                    ontime: 0,
+                    outoforder: 0,
+                    skipdeviation_skipped: 0,
+                    skipdeviation_outoforder: 0,
+                    flow_violation: 0,
+                    incomplete_execution: 0,
+                    multi_execution: 0
+                },
+                'egsm-4': {
+                    regular: 0,
+                    faulty: 0,
+                    unopened: 0,
+                    opened: 0,
+                    skipped: 0,
+                    ontime: 0,
+                    outoforder: 0,
+                    skipdeviation_skipped: 0,
+                    skipdeviation_outoforder: 0,
+                    flow_violation: 0,
+                    incomplete_execution: 0,
+                    multi_execution: 0
+                }
+            },
         }
     }
     expect(data1).toEqual(expected1)
 })
 
-test('[readProcessType][WRITE AND READ]', async () => {
+test('[writeProcessType][INCREASE COUNTERS][WRITE AND UPDATE AND READ]', async () => {
+    var perspective1 = new Perspective('pers-1', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-1', 'egsm-2'])
+    var perspective2 = new Perspective('pers-2', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-3', 'egsm-4'])
+    var processType = new ProcessType('type-1', ['Stakeholder-1'], 'Desc-1', 'BPMN', [perspective1, perspective2])
+    await DB.writeNewProcessType(processType)
+    await DB.increaseProcessTypeInstanceCounter('type-1')
+    var data1 = await DB.readProcessType('type-1')
+    expect(data1.instance_cnt).toEqual(1)
+    expect(data1.bpmn_job_cnt).toEqual(0)
 
-    await DB.writeNewProcessType('dummy', 'egsm1', 'egsm_model', 'bpmn1')
-    var data1 = await DB.readProcessType('dummy')
-    var expected1 = {
-        processtype: 'dummy',
-        egsminfo: 'egsm1',
-        egsmmodel: 'egsm_model',
-        bpmnmodel: 'bpmn1'
-    }
-    expect(data1).toEqual(expected1)
+    await DB.increaseProcessTypeBpmnJobCounter('type-1')
+    var data2 = await DB.readProcessType('type-1')
+    expect(data2.instance_cnt).toEqual(1)
+    expect(data2.bpmn_job_cnt).toEqual(1)
 
-    var data2 = await DB.readProcessType('dummy2')
-    var expected2 = undefined
-    expect(data2).toEqual(expected2)
+    await DB.increaseProcessTypeInstanceCounter('type-1')
+    await DB.increaseProcessTypeBpmnJobCounter('type-1')
+    var data3 = await DB.readProcessType('type-1')
+    expect(data3.instance_cnt).toEqual(2)
+    expect(data3.bpmn_job_cnt).toEqual(2)
+})
+
+test('[updateProcessTypeStatistics][WRITE AND UPDATE AND READ]', async () => {
+    var perspective1 = new Perspective('pers-1', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-1', 'egsm-2'])
+    var perspective2 = new Perspective('pers-2', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-3', 'egsm-4'])
+    var processType = new ProcessType('type-1', ['Stakeholder-1'], 'Desc-1', 'BPMN', [perspective1, perspective2])
+    await DB.writeNewProcessType(processType)
+
+    await DB.increaseProcessTypeStatisticsCounter('type-1','pers-1','egsm-2','skipped')
+    var reading1 = await DB.readProcessType('type-1')
+    expect(reading1.statistics['pers-1']['egsm-2']['skipped']).toEqual(1)
+
+    await DB.increaseProcessTypeStatisticsCounter('type-1','pers-1','egsm-2','skipped')
+    var reading2 = await DB.readProcessType('type-1')
+    expect(reading2.statistics['pers-1']['egsm-2']['skipped']).toEqual(2)
+
+    await DB.increaseProcessTypeStatisticsCounter('type-1','pers-1','egsm-1','outoforder')
+    var reading3 = await DB.readProcessType('type-1')
+    expect(reading3.statistics['pers-1']['egsm-1']['outoforder']).toEqual(1)
+
 })
 
 test('[writeNewProcessInstance][readProcessInstance][WRITE AND READ]', async () => {

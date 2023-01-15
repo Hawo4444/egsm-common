@@ -2,7 +2,7 @@ var UUID = require("uuid");
 
 var DYNAMO = require('./dynamoconnector')
 var LOG = require('../auxiliary/logManager');
-const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, FaultyRateWindow } = require('../auxiliary/primitives')
+const { Artifact, ArtifactEvent, ArtifactUsageEntry, ProcessInstance, Stakeholder, ProcessGroup, FaultyRateWindow, ProcessType } = require('../auxiliary/primitives')
 
 module.id = 'DB-CONNECTOR'
 
@@ -230,12 +230,34 @@ function deleteArtifactUsageEntries(artifactname, caseid) {
 }
 
 //PROCESS_TYPE related operations
-function writeNewProcessType(proccesstype, egsm_info, egsm_model, bpmn) {
-    var pk = { name: 'PROCESS_TYPE_NAME', value: proccesstype }
+function writeNewProcessType(processtypedefinition) {
+    var pk = { name: 'PROCESS_TYPE_NAME', value: processtypedefinition.name }
     var attributes = []
-    attributes.push({ name: 'EGSM_INFO', type: 'S', value: egsm_info })
-    attributes.push({ name: 'EGSM_MODEL', type: 'S', value: egsm_model })
-    attributes.push({ name: 'BPMN_MODEL', type: 'S', value: bpmn })
+    attributes.push({ name: 'PROCESS_INFO', type: 'S', value: JSON.stringify(processtypedefinition) })
+    attributes.push({ name: 'INSTANCE_COUNTER', type: 'N', value: '0' })
+    attributes.push({ name: 'BPMN_JOB_COUNTER', type: 'N', value: '0' })
+    var statistics = {}
+    processtypedefinition.perspectives.forEach(element => {
+        statistics[element.name] = {}
+        element.egsm_stages.forEach(stage => {
+            statistics[element.name][stage] = {
+                regular: 0,
+                faulty: 0,
+                unopened: 0,
+                opened: 0,
+                skipped: 0,
+                ontime: 0,
+                outoforder: 0,
+                skipdeviation_skipped: 0,
+                skipdeviation_outoforder: 0,
+                flow_violation: 0,
+                incomplete_execution: 0,
+                multi_execution: 0
+            }
+        });
+    });
+    //Adding each eGSM stages to the database
+    attributes.push({ name: 'PROCESS_STATISTICS', type: 'S', value: JSON.stringify(statistics) })
     return DYNAMO.writeItem('PROCESS_TYPE', pk, undefined, attributes)
 }
 
@@ -246,11 +268,55 @@ async function readProcessType(proccesstype) {
     if (data['Item']) {
         final =
         {
-            processtype: data['Item']['PROCESS_TYPE_NAME']['S'],
-            egsminfo: data['Item']['EGSM_INFO']['S'],
-            egsmmodel: data['Item']['EGSM_MODEL']['S'],
-            bpmnmodel: data['Item']['BPMN_MODEL']['S']
+            process_type: data['Item']['PROCESS_TYPE_NAME']['S'],
+            definition: JSON.parse(data['Item']['PROCESS_INFO']['S']),
+            instance_cnt: Number(data['Item']['INSTANCE_COUNTER']['N']),
+            bpmn_job_cnt: Number(data['Item']['BPMN_JOB_COUNTER']['N']),
+            statistics: JSON.parse(data['Item']['PROCESS_STATISTICS']['S']),
         }
+    }
+    return final
+}
+
+async function increaseProcessTypeInstanceCounter(processtype) {
+    var pk = { name: 'PROCESS_TYPE_NAME', value: processtype }
+    var result = await readProcessType(processtype)
+    if (result) {
+        var newValue = result.instance_cnt + 1
+        var attributes = [{ name: 'INSTANCE_COUNTER', type: 'N', value: newValue.toString() }]
+        await DYNAMO.updateItem('PROCESS_TYPE', pk, undefined, attributes)
+    }
+}
+
+async function increaseProcessTypeBpmnJobCounter(processtype) {
+    var pk = { name: 'PROCESS_TYPE_NAME', value: processtype }
+    var result = await readProcessType(processtype)
+    if (result) {
+        var newValue = result.bpmn_job_cnt + 1
+        var attributes = [{ name: 'BPMN_JOB_COUNTER', type: 'N', value: newValue.toString() }]
+        await DYNAMO.updateItem('PROCESS_TYPE', pk, undefined, attributes)
+    }
+}
+
+async function increaseProcessTypeStatisticsCounter(processtype, perspective, stage, metric) {
+    var pk = { name: 'PROCESS_TYPE_NAME', value: processtype }
+    var result = await readProcessType(processtype)
+    result.statistics[perspective][stage][metric] += 1
+    var attributes = [{ name: 'PROCESS_STATISTICS', type: 'S', value: JSON.stringify(result.statistics) }]
+    await DYNAMO.updateItem('PROCESS_TYPE', pk, undefined, attributes)
+}
+
+//TODO: unittests
+async function readAllProcessTypes() {
+    const data = await DYNAMO.scanTable('PROCESS_TYPE')
+    var final = []
+    if (data) {
+        data.forEach(element => {
+            final.push({
+                process_type_name: element['PROCESS_TYPE_NAME']['S'],
+                description: JSON.parse(element['PROCESS_INFO']['S']).description
+            })
+        })
     }
     return final
 }
@@ -402,6 +468,10 @@ module.exports = {
     //[PROCESS_TYPE] operations
     writeNewProcessType: writeNewProcessType,
     readProcessType: readProcessType,
+    increaseProcessTypeInstanceCounter: increaseProcessTypeInstanceCounter,
+    increaseProcessTypeBpmnJobCounter: increaseProcessTypeBpmnJobCounter,
+    increaseProcessTypeStatisticsCounter: increaseProcessTypeStatisticsCounter,
+    readAllProcessTypes:readAllProcessTypes,
 
     //[PROCESS_INSTANCE] operations
     writeNewProcessInstance: writeNewProcessInstance,
