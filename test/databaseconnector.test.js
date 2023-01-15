@@ -337,8 +337,8 @@ test('[writeNewProcessType][WRITE AND READ]', async () => {
                     unopened: 0,
                     opened: 0,
                     skipped: 0,
-                    ontime: 0,
-                    outoforder: 0,
+                    onTime: 0,
+                    outOfOrder: 0,
                     skipdeviation_skipped: 0,
                     skipdeviation_outoforder: 0,
                     flow_violation: 0,
@@ -351,8 +351,8 @@ test('[writeNewProcessType][WRITE AND READ]', async () => {
                     unopened: 0,
                     opened: 0,
                     skipped: 0,
-                    ontime: 0,
-                    outoforder: 0,
+                    onTime: 0,
+                    outOfOrder: 0,
                     skipdeviation_skipped: 0,
                     skipdeviation_outoforder: 0,
                     flow_violation: 0,
@@ -368,8 +368,8 @@ test('[writeNewProcessType][WRITE AND READ]', async () => {
                     unopened: 0,
                     opened: 0,
                     skipped: 0,
-                    ontime: 0,
-                    outoforder: 0,
+                    onTime: 0,
+                    outOfOrder: 0,
                     skipdeviation_skipped: 0,
                     skipdeviation_outoforder: 0,
                     flow_violation: 0,
@@ -382,8 +382,8 @@ test('[writeNewProcessType][WRITE AND READ]', async () => {
                     unopened: 0,
                     opened: 0,
                     skipped: 0,
-                    ontime: 0,
-                    outoforder: 0,
+                    onTime: 0,
+                    outOfOrder: 0,
                     skipdeviation_skipped: 0,
                     skipdeviation_outoforder: 0,
                     flow_violation: 0,
@@ -432,9 +432,9 @@ test('[updateProcessTypeStatistics][WRITE AND UPDATE AND READ]', async () => {
     var reading2 = await DB.readProcessType('type-1')
     expect(reading2.statistics['pers-1']['egsm-2']['skipped']).toEqual(2)
 
-    await DB.increaseProcessTypeStatisticsCounter('type-1','pers-1','egsm-1','outoforder')
+    await DB.increaseProcessTypeStatisticsCounter('type-1','pers-1','egsm-1','outOfOrder')
     var reading3 = await DB.readProcessType('type-1')
-    expect(reading3.statistics['pers-1']['egsm-1']['outoforder']).toEqual(1)
+    expect(reading3.statistics['pers-1']['egsm-1']['outOfOrder']).toEqual(1)
 
 })
 
