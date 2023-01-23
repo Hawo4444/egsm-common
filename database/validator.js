@@ -28,7 +28,7 @@ function validateArtifact(artifacttype, artifactinstancename) {
 }
 
 function validateStageLogMessage(msgJson) {
-    if (msgJson.processtype == undefined || msgJson.instanceid == undefined || msgJson.perspective == undefined || msgJson.stagename == undefined || msgJson.timestamp == undefined ||
+    if (msgJson.process_type == undefined || msgJson.process_id == undefined || msgJson.process_perspective == undefined || msgJson.stage_name == undefined || msgJson.timestamp == undefined ||
         msgJson.status == undefined || msgJson.state == undefined || msgJson.compliance == undefined) {
         LOG.logWorker('WARNING', `Data is missing to write StageEvent log`, module.id)
         return false
