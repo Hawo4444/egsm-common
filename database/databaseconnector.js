@@ -297,11 +297,17 @@ async function increaseProcessTypeBpmnJobCounter(processtype) {
         await DYNAMO.updateItem('PROCESS_TYPE', pk, undefined, attributes)
     }
 }
-
-async function increaseProcessTypeStatisticsCounter(processtype, perspective, stage, metric) {
+//[stage:{status,state,compliance}]
+async function increaseProcessTypeStatisticsCounters(processtype, perspective, metrics) {
     var pk = { name: 'PROCESS_TYPE_NAME', value: processtype }
     var result = await readProcessType(processtype)
-    result.statistics[perspective][stage][metric] += 1
+    //result.statistics[perspective][stage][metric] += 1
+    metrics.forEach(element => {
+        result.statistics[perspective][element.name][element.state] += 1
+        result.statistics[perspective][element.name][element.status] += 1
+        result.statistics[perspective][element.name][element.compliance] += 1
+    });
+
     var attributes = [{ name: 'PROCESS_STATISTICS', type: 'S', value: JSON.stringify(result.statistics) }]
     await DYNAMO.updateItem('PROCESS_TYPE', pk, undefined, attributes)
 }
@@ -470,7 +476,7 @@ module.exports = {
     readProcessType: readProcessType,
     increaseProcessTypeInstanceCounter: increaseProcessTypeInstanceCounter,
     increaseProcessTypeBpmnJobCounter: increaseProcessTypeBpmnJobCounter,
-    increaseProcessTypeStatisticsCounter: increaseProcessTypeStatisticsCounter,
+    increaseProcessTypeStatisticsCounter: increaseProcessTypeStatisticsCounters,
     readAllProcessTypes:readAllProcessTypes,
 
     //[PROCESS_INSTANCE] operations
