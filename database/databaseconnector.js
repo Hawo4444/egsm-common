@@ -43,13 +43,19 @@ async function readArtifactDefinition(artifactType, artifactId) {
             data.Item?.PORT.N)
         //Change keys of faulty_rates map
         var faultyRatesMap = new Map()
+        var timingFaultyRatesMap = new Map()
         Object.keys(final.faulty_rates).forEach(function (key, index) {
             var origKey = key
             var newKey = key.replace('w', '')
             faultyRatesMap.set(Number(newKey), JSON.parse(final.faulty_rates[origKey].S))
         });
+        Object.keys(final.timing_faulty_rates).forEach(function (key, index) {
+            var origKey = key
+            var newKey = key.replace('w', '')
+            timingFaultyRatesMap.set(Number(newKey), JSON.parse(final.timing_faulty_rates[origKey].S))
+        });
         final.faulty_rates = faultyRatesMap
-        final.timing_faulty_rates = new Map()
+        final.timing_faulty_rates = timingFaultyRatesMap
     }
     return final
 }
