@@ -583,7 +583,9 @@ async function query(tablename, keyconditionexpression, expressionattributevalue
         ExclusiveStartKey = result.LastEvaluatedKey;
         accumulated = [...accumulated, ...result.Items];
     } while (result.LastEvaluatedKey);
-
+    if(JSON.stringify(accumulated) === '[{}]'){
+        accumulated = []
+    }
     return accumulated;
 }
 

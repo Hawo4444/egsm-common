@@ -21,7 +21,7 @@ class Validator {
     }
 
     static validateArtifactFaultyRate(faulryrate, threshold) {
-        if (faulryrate >= threshold) {
+        if (faulryrate.value >= threshold) {
             return false
         }
         return true
