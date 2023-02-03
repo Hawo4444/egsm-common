@@ -1,6 +1,11 @@
 class Validator {
     constructor() { }
 
+    /**
+     * Checks if a stage may have participated in any deviation, based on only stage information
+     * @param {Object} stage Stage to verify 
+     * @returns 
+     */
     static validateProcessStage(stage) {
         var errors = []
         if (stage.status == 'faulty') {
@@ -52,7 +57,6 @@ class Validator {
             });
         }
         result = result || stakeholderRuleSatisfied
-        console.log('Rules result:' + result)
         return result
     }
 }

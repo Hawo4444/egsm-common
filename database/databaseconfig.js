@@ -30,7 +30,6 @@ async function initTables() {
     tables.forEach(element => {
         try {
             promises.push(DYNAMO.initTable(element.name, element.pk, element.sk, element?.secondaryindex || undefined))
-            console.log(element.name + ' created')
         } catch (error) {
             console.error(element.name + ' could not be created')
         }

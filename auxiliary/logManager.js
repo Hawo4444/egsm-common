@@ -29,7 +29,7 @@ function writeConsole(type, value, location) {
 
 var logSystem = function (type, value, location) {
   location = location || ''
-  system_log.write(new Date().toISOString() + '; ' + util.format('[' + location + '] ' + type + ' - ' + value) + '\n');
+  //system_log.write(new Date().toISOString() + '; ' + util.format('[' + location + '] ' + type + ' - ' + value) + '\n');
   if (LOG_LEVELS[type] >= CONSOLE_LOG_LEVEL) {
     writeConsole(type, value, location)
   }
