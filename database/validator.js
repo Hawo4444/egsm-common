@@ -10,10 +10,10 @@ function validateProcessType(processtypename) {
     return true
 }
 
-function validateProcessInstance(processtypename, processinstnacename) {
+function validateProcessInstance(processtypename, processinstancename) {
     var typeresult = validateProcessType(processtypename)
-    if (!typeresult || processinstnacename.length < 1 || processinstnacename.includes('/')) {
-        LOG('ERROR', `Process instance name ${processtypename}/${processinstnacename} is invalid`, module.id)
+    if (!typeresult || processinstancename.length < 1 || processinstancename.includes('/')) {
+        LOG('ERROR', `Process instance name ${processtypename}/${processinstancename} is invalid`, module.id)
         return false
     }
     return true

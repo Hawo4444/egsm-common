@@ -1,5 +1,5 @@
 var AWS = require('aws-sdk');
-var LOG = require('../auxiliary/LogManager')
+var LOG = require('../auxiliary/logManager')
 var AUX = require('../auxiliary/auxiliary')
 //LOG.setLogLevel(5)
 

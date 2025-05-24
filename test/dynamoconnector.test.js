@@ -1,4 +1,4 @@
-var LOG = require('../auxiliary/LogManager')
+var LOG = require('../auxiliary/logManager')
 //LOG.setLogLevel(5)
 
 var DYNAMO = require('../database/dynamoconnector')
