@@ -95,11 +95,15 @@ class PerformanceTracker {
     }
 
     trackWorkerReceived(correlationId, additionalData = {}) {
+        console.log(`[${this.componentId}] trackWorkerReceived called for: ${correlationId}`);
+        console.log(`[${this.componentId}] Current traces in memory: ${this.eventTraces.size}`);
+
         let trace = this.eventTraces.get(correlationId);
         if (!trace) {
-            // Load from shared storage if not in memory
+            console.log(`[${this.componentId}] Trace not found locally, loading from shared storage...`);
             this.loadSharedTraces();
             trace = this.eventTraces.get(correlationId);
+            console.log(`[${this.componentId}] After loading: traces in memory: ${this.eventTraces.size}`);
         }
 
         if (trace && trace.status === 'pending') {
@@ -107,7 +111,10 @@ class PerformanceTracker {
             if (!trace.components.includes(this.componentId)) {
                 trace.components.push(this.componentId);
             }
+            console.log(`[${this.componentId}] ✅ Updated T2 for ${correlationId}`);
             this.saveSharedTraces();
+        } else {
+            console.log(`[${this.componentId}] ❌ Failed to update. Trace exists: ${!!trace}, Status: ${trace?.status}`);
         }
     }
 
@@ -201,7 +208,6 @@ class PerformanceTracker {
         console.log(`[${this.componentId}] trackEmulatorEvent: traces in memory: ${this.eventTraces.size}`);
         console.log(`[${this.componentId}] About to call saveSharedTraces...`);
         this.saveSharedTraces();
-
 
         // Initialize process metrics if not exists
         if (!this.processMetrics.has(processInstance)) {
