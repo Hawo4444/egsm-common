@@ -3,9 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 class PerformanceTracker {
-    constructor() {
+    constructor(componentId = 'unknown') {
+        this.componentId = componentId;
         this.eventTraces = new Map(); // correlationId -> EventTrace
         this.processMetrics = new Map(); // processInstanceId -> ProcessMetrics
+        this.sharedDir = path.resolve(__dirname, '../../../../../shared-performance-data');
+        this.ensureSharedDir();
         this.aggregatedStats = {
             totalEvents: 0,
             completedTraces: 0,
@@ -15,6 +18,137 @@ class PerformanceTracker {
         };
         this.timeoutDuration = 30000; // 30 seconds timeout for incomplete traces
         this.moduleId = "PERF_TRACKER";
+        this.loadSharedTraces();
+    }
+
+    ensureSharedDir() {
+        try {
+            if (!fs.existsSync(this.sharedDir)) {
+                fs.mkdirSync(this.sharedDir, { recursive: true });
+            }
+        } catch (e) {
+            // Fallback to local directory if shared fails
+            this.sharedDir = './performance-data';
+            if (!fs.existsSync(this.sharedDir)) {
+                fs.mkdirSync(this.sharedDir, { recursive: true });
+            }
+        }
+    }
+
+    loadSharedTraces() {
+        try {
+            const tracesFile = path.join(this.sharedDir, 'traces.json');
+            if (fs.existsSync(tracesFile)) {
+                const data = fs.readFileSync(tracesFile, 'utf8');
+                const sharedTraces = JSON.parse(data);
+
+                // Only load recent traces (last hour) to keep memory usage low
+                const oneHourAgo = Date.now() - (60 * 60 * 1000);
+                Object.entries(sharedTraces).forEach(([correlationId, trace]) => {
+                    if (trace.timestamps.T1_emulator_sent > oneHourAgo) {
+                        this.eventTraces.set(correlationId, trace);
+                    }
+                });
+            }
+        } catch (e) {
+            // Ignore errors, start fresh
+        }
+    }
+
+    saveSharedTraces() {
+        // Async write to minimize blocking
+        setImmediate(() => {
+            try {
+                const tracesFile = path.join(this.sharedDir, 'traces.json');
+                const traceData = {};
+
+                // Only save recent traces to keep file size manageable
+                const oneHourAgo = Date.now() - (60 * 60 * 1000);
+                this.eventTraces.forEach((trace, correlationId) => {
+                    if (trace.timestamps.T1_emulator_sent > oneHourAgo) {
+                        // Remove timeout handle before saving
+                        const cleanTrace = { ...trace };
+                        delete cleanTrace.timeoutHandle;
+                        traceData[correlationId] = cleanTrace;
+                    }
+                });
+
+                fs.writeFileSync(tracesFile, JSON.stringify(traceData), 'utf8');
+            } catch (e) {
+                // Ignore write errors to avoid affecting main processing
+            }
+        });
+    }
+
+    trackWorkerReceived(correlationId, additionalData = {}) {
+        let trace = this.eventTraces.get(correlationId);
+        if (!trace) {
+            // Load from shared storage if not in memory
+            this.loadSharedTraces();
+            trace = this.eventTraces.get(correlationId);
+        }
+
+        if (trace && trace.status === 'pending') {
+            trace.timestamps.T2_worker_received = Date.now();
+            if (!trace.components.includes(this.componentId)) {
+                trace.components.push(this.componentId);
+            }
+            this.saveSharedTraces();
+        }
+    }
+
+    trackEngineProcessed(correlationId, generatedEvents = [], additionalData = {}) {
+        let trace = this.eventTraces.get(correlationId);
+        if (!trace) {
+            this.loadSharedTraces();
+            trace = this.eventTraces.get(correlationId);
+        }
+
+        if (trace) {
+            trace.timestamps.T3_engine_processed = Date.now();
+            if (!trace.components.includes(this.componentId)) {
+                trace.components.push(this.componentId);
+            }
+            this.saveSharedTraces();
+        }
+    }
+
+    trackAggregatorReceived(correlationId, additionalData = {}) {
+        let trace = this.eventTraces.get(correlationId);
+        if (!trace) {
+            this.loadSharedTraces();
+            trace = this.eventTraces.get(correlationId);
+        }
+
+        if (trace && trace.status === 'pending') {
+            trace.timestamps.T4_aggregator_received = Date.now();
+            if (!trace.components.includes(this.componentId)) {
+                trace.components.push(this.componentId);
+            }
+            this.saveSharedTraces();
+        }
+    }
+
+    trackDetectionComplete(correlationId, detectionResult = {}) {
+        let trace = this.eventTraces.get(correlationId);
+        if (!trace) {
+            this.loadSharedTraces();
+            trace = this.eventTraces.get(correlationId);
+        }
+
+        if (trace && trace.status === 'pending') {
+            trace.timestamps.T5_detection_complete = Date.now();
+            trace.status = 'completed';
+            trace.detectionResult = detectionResult;
+
+            if (!trace.components.includes(this.componentId)) {
+                trace.components.push(this.componentId);
+            }
+
+            this.calculateTraceMetrics(trace);
+            this.aggregatedStats.completedTraces++;
+            this.saveSharedTraces();
+        }
     }
 
     generateCorrelationId() {
@@ -304,40 +438,24 @@ class PerformanceTracker {
     }
 
     // Add this method to export data to file
-    exportToFile(directory = './performance-logs', prefix = 'perf-data') {
+    exportToFile(directory = null, prefix = 'perf-data') {
         try {
-            // Create directory if it doesn't exist
-            if (!fs.existsSync(directory)) {
-                fs.mkdirSync(directory, { recursive: true });
+            const exportDir = directory || this.sharedDir;
+            if (!fs.existsSync(exportDir)) {
+                fs.mkdirSync(exportDir, { recursive: true });
             }
 
-            const timestamp = new Date().toISOString().replace(/:/g, '-');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `${prefix}-${this.componentId}-${timestamp}.json`;
+            const filepath = path.join(exportDir, filename);
+
             const data = this.exportData();
+            fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
 
-            // Export raw JSON data (contains everything)
-            const jsonFilePath = path.join(directory, `${prefix}-${timestamp}.json`);
-            fs.writeFileSync(jsonFilePath, JSON.stringify(data, null, 2));
-
-            // Export summary CSV (easier to import to Excel)
-            const csvFilePath = path.join(directory, `${prefix}-summary-${timestamp}.csv`);
-            const csvContent = this.generateSummaryCSV(data);
-            fs.writeFileSync(csvFilePath, csvContent);
-
-            // Export trace details CSV
-            const tracesCsvPath = path.join(directory, `${prefix}-traces-${timestamp}.csv`);
-            const tracesCsv = this.generateTracesCSV(data.rawTraces);
-            fs.writeFileSync(tracesCsvPath, tracesCsv);
-
-            LOG.logSystem('INFO', `Performance data exported to ${jsonFilePath}, ${csvFilePath}, and ${tracesCsvPath}`, this.moduleId);
-
-            return {
-                jsonPath: jsonFilePath,
-                summaryPath: csvFilePath,
-                tracesPath: tracesCsvPath
-            };
+            LOG.logSystem('INFO', `Performance data exported to ${filepath}`, this.moduleId);
+            return filepath;
         } catch (error) {
             LOG.logSystem('ERROR', `Failed to export performance data: ${error.message}`, this.moduleId);
-            return null;
         }
     }
 
@@ -406,7 +524,8 @@ class PerformanceTracker {
 }
 
 // Create singleton instance
-const performanceTracker = new PerformanceTracker();
+const componentId = process.env.EGSM_COMPONENT_ID || 'unknown';
+const performanceTracker = new PerformanceTracker(componentId);
 
 // Add shutdown handler to auto-export data
 process.on('SIGINT', () => {
