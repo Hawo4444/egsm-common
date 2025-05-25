@@ -38,25 +38,38 @@ class PerformanceTracker {
     loadSharedTraces() {
         try {
             const tracesFile = path.join(this.sharedDir, 'traces.json');
+            console.log(`[${this.componentId}] Loading shared traces from: ${tracesFile}`);
+
             if (fs.existsSync(tracesFile)) {
                 const data = fs.readFileSync(tracesFile, 'utf8');
                 const sharedTraces = JSON.parse(data);
 
+                console.log(`[${this.componentId}] Found ${Object.keys(sharedTraces).length} shared traces`);
+
                 // Only load recent traces (last hour) to keep memory usage low
                 const oneHourAgo = Date.now() - (60 * 60 * 1000);
+                let loadedCount = 0;
                 Object.entries(sharedTraces).forEach(([correlationId, trace]) => {
-                    if (trace.timestamps.T1_emulator_sent > oneHourAgo) {
+                    if (trace.timestamps && trace.timestamps.T1_emulator_sent > oneHourAgo) {
                         this.eventTraces.set(correlationId, trace);
+                        loadedCount++;
                     }
                 });
+
+                console.log(`[${this.componentId}] Loaded ${loadedCount} recent traces into memory`);
+                console.log(`[${this.componentId}] Available correlation IDs:`, Array.from(this.eventTraces.keys()));
+            } else {
+                console.log(`[${this.componentId}] No shared traces file found at ${tracesFile}`);
             }
         } catch (e) {
-            // Ignore errors, start fresh
+            console.log(`[${this.componentId}] Error loading shared traces: ${e.message}`);
         }
     }
 
     saveSharedTraces() {
-        // Async write to minimize blocking
+        // Add debug logging
+        console.log(`[${this.componentId}] Saving ${this.eventTraces.size} traces to shared storage`);
+
         setImmediate(() => {
             try {
                 const tracesFile = path.join(this.sharedDir, 'traces.json');
@@ -65,7 +78,7 @@ class PerformanceTracker {
                 // Only save recent traces to keep file size manageable
                 const oneHourAgo = Date.now() - (60 * 60 * 1000);
                 this.eventTraces.forEach((trace, correlationId) => {
-                    if (trace.timestamps.T1_emulator_sent > oneHourAgo) {
+                    if (trace.timestamps && trace.timestamps.T1_emulator_sent > oneHourAgo) {
                         // Remove timeout handle before saving
                         const cleanTrace = { ...trace };
                         delete cleanTrace.timeoutHandle;
@@ -73,9 +86,10 @@ class PerformanceTracker {
                     }
                 });
 
-                fs.writeFileSync(tracesFile, JSON.stringify(traceData), 'utf8');
+                console.log(`[${this.componentId}] Writing ${Object.keys(traceData).length} traces to ${tracesFile}`);
+                fs.writeFileSync(tracesFile, JSON.stringify(traceData, null, 2), 'utf8');
             } catch (e) {
-                // Ignore write errors to avoid affecting main processing
+                console.log(`[${this.componentId}] Error saving shared traces: ${e.message}`);
             }
         });
     }
@@ -543,12 +557,5 @@ class PerformanceTracker {
 // Create singleton instance
 const componentId = process.env.EGSM_COMPONENT_ID || 'unknown';
 const performanceTracker = new PerformanceTracker(componentId);
-
-// Add shutdown handler to auto-export data
-process.on('SIGINT', () => {
-    LOG.logSystem('INFO', 'Received shutdown signal, exporting performance data...', "PERF_TRACKER");
-    performanceTracker.exportToFile();
-    process.exit(0);
-});
 
 module.exports = performanceTracker;
