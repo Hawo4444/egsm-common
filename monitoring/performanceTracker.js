@@ -4,14 +4,14 @@ const path = require('path');
 class PerformanceTracker {
     constructor(componentId = 'unknown') {
         this.componentId = componentId;
-        this.events = []; // Array of {eventId, timestamp, stage, data}
+        this.events = []; // Array of {correlationId, timestamp, stage, data}
         this.moduleId = "PERF_TRACKER";
     }
 
-    // Record any event with eventId and timestamp
-    recordEvent(eventId, stage, additionalData = {}) {
+    // Record any event with correlationId and timestamp
+    recordEvent(correlationId, stage, additionalData = {}) {
         const record = {
-            eventId: eventId,
+            correlationId: correlationId,
             timestamp: Date.now(),
             stage: stage,
             componentId: this.componentId,
@@ -19,7 +19,7 @@ class PerformanceTracker {
         };
         
         this.events.push(record);
-        console.log(`[${this.componentId}] Recorded ${stage} for event ${eventId} at ${record.timestamp}`);
+        console.log(`[${this.componentId}] Recorded ${stage} for correlation ${correlationId} at ${record.timestamp}`);
     }
 
     // Export all data to file
