@@ -5,7 +5,7 @@ module.id = "MQTT"
 
 let performanceTracker;
 try {
-    performanceTracker = require('../auxiliary/monitoring/performance-tracker');
+    performanceTracker = require('../monitoring/performanceTracker');
 } catch (e) {
     performanceTracker = null;
     LOG.logSystem('WARNING', 'Performance tracker not available: ' + e.message, module.id);
