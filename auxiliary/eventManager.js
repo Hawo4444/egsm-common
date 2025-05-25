@@ -9,7 +9,7 @@ try {
 } catch (e) {
   // Fallback if performance tracker not available
   performanceTracker = null;
-  LOG.logEvent.logSystem('WARNING', 'Performance tracker not available: ' + e.message, 'EVENT_MGR');
+  LOG.logSystem('WARNING', 'Performance tracker not available: ' + e.message, 'EVENT_MGR');
 }
 
 // generic event handling module
