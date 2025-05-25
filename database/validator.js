@@ -46,10 +46,8 @@ function validateArtifactLogMessage(msgJson) {
 }
 
 function validateConditionLogMessage(msgJson) {
-    if (msgJson.process_type == undefined || msgJson.process_id == undefined ||
-        msgJson.condition_name == undefined || msgJson.timestamp == undefined ||
-        msgJson.old_value == undefined || msgJson.new_value == undefined ||
-        msgJson.condition_type == undefined) {
+    if (msgJson.process_type == undefined || msgJson.process_id  == undefined || msgJson.process_perspective  == undefined || msgJson.stage_name == undefined || msgJson.timestamp == undefined ||
+        msgJson.condition == undefined) {
         LOG.logWorker('WARNING', `Data is missing to write ConditionEvent log`, module.id)
         return false
     }
