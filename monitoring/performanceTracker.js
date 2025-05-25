@@ -198,6 +198,11 @@ class PerformanceTracker {
         this.eventTraces.set(correlationId, eventTrace);
         this.aggregatedStats.totalEvents++;
 
+        console.log(`[${this.componentId}] trackEmulatorEvent: traces in memory: ${this.eventTraces.size}`);
+        console.log(`[${this.componentId}] About to call saveSharedTraces...`);
+        this.saveSharedTraces();
+
+
         // Initialize process metrics if not exists
         if (!this.processMetrics.has(processInstance)) {
             this.processMetrics.set(processInstance, {
