@@ -215,7 +215,7 @@ class PerformanceTracker {
     }
 
     // Calculate latency statistics for each processing stage
-    calculateLatencyStatencies() {
+    calculateLatencyStatistics() {
         const stages = ['emulator_to_worker', 'worker_to_engine', 'engine_to_aggregator', 'aggregator_processing'];
         const latencyStats = {};
 
