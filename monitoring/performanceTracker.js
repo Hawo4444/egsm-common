@@ -7,7 +7,7 @@ class PerformanceTracker {
         this.componentId = componentId;
         this.eventTraces = new Map(); // correlationId -> EventTrace
         this.processMetrics = new Map(); // processInstanceId -> ProcessMetrics
-        this.sharedDir = path.resolve(__dirname, '../../../../../shared-performance-data');
+        this.sharedDir = path.resolve(__dirname, '../../../../shared-performance-data');
         this.ensureSharedDir();
         this.aggregatedStats = {
             totalEvents: 0,
@@ -438,25 +438,42 @@ class PerformanceTracker {
     }
 
     // Add this method to export data to file
-    exportToFile(directory = null, prefix = 'perf-data') {
+    exportToFile(prefix = 'perf-data') {
         try {
-            const exportDir = directory || this.sharedDir;
+            const exportDir = this.sharedDir;
             if (!fs.existsSync(exportDir)) {
                 fs.mkdirSync(exportDir, { recursive: true });
             }
+
+            const sharedData = this.loadAndCombineAllTraces();
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const filename = `${prefix}-${this.componentId}-${timestamp}.json`;
             const filepath = path.join(exportDir, filename);
 
-            const data = this.exportData();
-            fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+            fs.writeFileSync(filepath, JSON.stringify(sharedData, null, 2));
 
             LOG.logSystem('INFO', `Performance data exported to ${filepath}`, this.moduleId);
             return filepath;
         } catch (error) {
             LOG.logSystem('ERROR', `Failed to export performance data: ${error.message}`, this.moduleId);
         }
+    }
+
+    loadAndCombineAllTraces() {
+        this.loadSharedTraces(); // Refresh from shared storage
+
+        return {
+            timestamp: new Date().toISOString(),
+            statistics: this.getStatistics(),
+            rawTraces: Array.from(this.eventTraces.values()).map(trace => {
+                const cleanTrace = { ...trace };
+                delete cleanTrace.timeoutHandle;
+                return cleanTrace;
+            }),
+            processMetrics: Array.from(this.processMetrics.entries()),
+            componentId: this.componentId
+        };
     }
 
     // Generate summary CSV
