@@ -1,6 +1,6 @@
 // dependencies
 var events = require('events');
-var LOG = require('./LOG');
+var LOG = require('./logManager');
 
 // Import performance tracker - adjust path as needed for your structure
 let performanceTracker;
