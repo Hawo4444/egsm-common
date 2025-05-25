@@ -253,7 +253,12 @@ class PerformanceTracker {
         const exportData = {
             timestamp: new Date().toISOString(),
             statistics: this.getStatistics(),
-            rawTraces: Array.from(this.eventTraces.values()),
+            rawTraces: Array.from(this.eventTraces.values()).map(trace => {
+                // Create a clean copy without the timeout handle
+                const cleanTrace = { ...trace };
+                delete cleanTrace.timeoutHandle;
+                return cleanTrace;
+            }),
             processMetrics: Array.from(this.processMetrics.entries())
         };
 
