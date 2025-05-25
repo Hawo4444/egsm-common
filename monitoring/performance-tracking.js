@@ -1,4 +1,4 @@
-const LOG = require('./egsm-common/auxiliary/logManager');
+const LOG = require('./auxiliary/logManager');
 const fs = require('fs');
 const path = require('path');
 
