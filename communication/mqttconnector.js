@@ -58,7 +58,21 @@ module.exports = {
         }
     },
 
-    publishTopic: function (hostname, port, topic, message) {
+    publishTopic: function (hostname, port, topic, message, options) {
+        let correlationId = null;
+        try {
+            const msgObj = typeof message === 'string' ? JSON.parse(message) : message;
+            correlationId = msgObj._correlationId || msgObj.correlationId ||
+                (msgObj.event && msgObj.event._correlationId);
+        } catch (e) { }
+
+        if (performanceTracker && correlationId) {
+            performanceTracker.trackMqttPublish(correlationId, {
+                topic: topic,
+                broker: `${hostname}:${port}`
+            });
+        }
+
         LOG.logWorker('DEBUG', `Publishing to: [${hostname}]:[${port}] -> [${topic}] :: [${message}]`, module.id)
         if (!BROKERS.has([hostname, port].join(":"))) {
             LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id)

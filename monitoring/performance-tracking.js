@@ -1,4 +1,6 @@
 const LOG = require('./egsm-common/auxiliary/logManager');
+const fs = require('fs');
+const path = require('path');
 
 class PerformanceTracker {
     constructor() {
@@ -22,7 +24,7 @@ class PerformanceTracker {
     trackEmulatorEvent(entityName, processInstance, eventData) {
         const correlationId = this.generateCorrelationId();
         const timestamp = Date.now();
-        
+
         const eventTrace = {
             correlationId: correlationId,
             processInstance: processInstance,
@@ -82,12 +84,12 @@ class PerformanceTracker {
             trace.timestamps.T3_engine_processed = Date.now();
             trace.engineData = additionalData;
             trace.relatedEvents = generatedEvents;
-            
+
             // If engine generates no events, mark as incomplete
             if (generatedEvents.length === 0) {
                 this.markTraceIncomplete(correlationId, 'no_engine_output');
             }
-            
+
             LOG.logSystem('DEBUG', `Engine processed event ${correlationId}, generated ${generatedEvents.length} events`, this.moduleId);
         }
     }
@@ -129,7 +131,7 @@ class PerformanceTracker {
         if (trace && trace.status === 'pending') {
             trace.status = 'incomplete';
             trace.incompleteReason = reason;
-            
+
             if (trace.timeoutHandle) {
                 clearTimeout(trace.timeoutHandle);
             }
@@ -142,19 +144,19 @@ class PerformanceTracker {
     // Calculate metrics for a completed trace
     calculateTraceMetrics(trace) {
         const timestamps = trace.timestamps;
-        
+
         // Detection delay (T5 - T1)
         if (timestamps.T1_emulator_sent && timestamps.T5_detection_complete) {
             const detectionDelay = timestamps.T5_detection_complete - timestamps.T1_emulator_sent;
             trace.detectionDelay = detectionDelay;
             this.aggregatedStats.detectionDelays.push(detectionDelay);
-            
+
             // Update process-specific metrics
             const processMetrics = this.processMetrics.get(trace.processInstance);
             if (processMetrics) {
                 processMetrics.completedEvents++;
                 processMetrics.detectionDelays.push(detectionDelay);
-                processMetrics.avgDetectionDelay = 
+                processMetrics.avgDetectionDelay =
                     processMetrics.detectionDelays.reduce((a, b) => a + b, 0) / processMetrics.detectionDelays.length;
             }
         }
@@ -185,7 +187,7 @@ class PerformanceTracker {
                 totalEvents: this.aggregatedStats.totalEvents,
                 completedTraces: this.aggregatedStats.completedTraces,
                 incompleteTraces: this.aggregatedStats.incompleteTraces,
-                completionRate: this.aggregatedStats.totalEvents > 0 ? 
+                completionRate: this.aggregatedStats.totalEvents > 0 ?
                     (this.aggregatedStats.completedTraces / this.aggregatedStats.totalEvents * 100).toFixed(2) : 0
             },
             detectionDelays: this.calculateDelayStatistics(this.aggregatedStats.detectionDelays),
@@ -221,7 +223,7 @@ class PerformanceTracker {
             const values = this.aggregatedStats.processingLatencies
                 .map(l => l[stage])
                 .filter(v => v !== undefined);
-            
+
             if (values.length > 0) {
                 latencyStats[stage] = this.calculateDelayStatistics(values);
             }
@@ -238,7 +240,7 @@ class PerformanceTracker {
                 processInstance: processInstance,
                 totalEvents: metrics.totalEvents,
                 completedEvents: metrics.completedEvents,
-                completionRate: metrics.totalEvents > 0 ? 
+                completionRate: metrics.totalEvents > 0 ?
                     (metrics.completedEvents / metrics.totalEvents * 100).toFixed(2) : 0,
                 avgDetectionDelay: metrics.avgDetectionDelay.toFixed(2)
             });
@@ -283,21 +285,129 @@ class PerformanceTracker {
     // Find correlation ID by entity and process instance (for cases where you need to match events)
     findCorrelationByEntity(entityName, processInstance, timeWindow = 5000) {
         const now = Date.now();
-        
+
         for (const [correlationId, trace] of this.eventTraces.entries()) {
-            if (trace.entityName === entityName && 
+            if (trace.entityName === entityName &&
                 trace.processInstance === processInstance &&
                 trace.status === 'pending' &&
                 (now - trace.timestamps.T1_emulator_sent) <= timeWindow) {
                 return correlationId;
             }
         }
-        
+
         return null;
+    }
+
+    // Add this method to export data to file
+    exportToFile(directory = './performance-logs', prefix = 'perf-data') {
+        try {
+            // Create directory if it doesn't exist
+            if (!fs.existsSync(directory)) {
+                fs.mkdirSync(directory, { recursive: true });
+            }
+
+            const timestamp = new Date().toISOString().replace(/:/g, '-');
+            const data = this.exportData();
+
+            // Export raw JSON data (contains everything)
+            const jsonFilePath = path.join(directory, `${prefix}-${timestamp}.json`);
+            fs.writeFileSync(jsonFilePath, JSON.stringify(data, null, 2));
+
+            // Export summary CSV (easier to import to Excel)
+            const csvFilePath = path.join(directory, `${prefix}-summary-${timestamp}.csv`);
+            const csvContent = this.generateSummaryCSV(data);
+            fs.writeFileSync(csvFilePath, csvContent);
+
+            // Export trace details CSV
+            const tracesCsvPath = path.join(directory, `${prefix}-traces-${timestamp}.csv`);
+            const tracesCsv = this.generateTracesCSV(data.rawTraces);
+            fs.writeFileSync(tracesCsvPath, tracesCsv);
+
+            LOG.logSystem('INFO', `Performance data exported to ${jsonFilePath}, ${csvFilePath}, and ${tracesCsvPath}`, this.moduleId);
+
+            return {
+                jsonPath: jsonFilePath,
+                summaryPath: csvFilePath,
+                tracesPath: tracesCsvPath
+            };
+        } catch (error) {
+            LOG.logSystem('ERROR', `Failed to export performance data: ${error.message}`, this.moduleId);
+            return null;
+        }
+    }
+
+    // Generate summary CSV
+    generateSummaryCSV(data) {
+        const stats = data.statistics;
+        let csv = 'Metric,Value\n';
+
+        // General stats
+        csv += `Total Events,${stats.summary.totalEvents}\n`;
+        csv += `Completed Traces,${stats.summary.completedTraces}\n`;
+        csv += `Incomplete Traces,${stats.summary.incompleteTraces}\n`;
+        csv += `Completion Rate (%),${stats.summary.completionRate}\n\n`;
+
+        // Detection delay stats
+        if (stats.detectionDelays) {
+            csv += 'Detection Delays (ms)\n';
+            csv += `Count,${stats.detectionDelays.count}\n`;
+            csv += `Min,${stats.detectionDelays.min}\n`;
+            csv += `Max,${stats.detectionDelays.max}\n`;
+            csv += `Mean,${stats.detectionDelays.mean}\n`;
+            csv += `Median,${stats.detectionDelays.median}\n`;
+            csv += `P95,${stats.detectionDelays.p95}\n`;
+            csv += `P99,${stats.detectionDelays.p99}\n\n`;
+        }
+
+        // Process breakdown
+        csv += 'Process,Total Events,Completed Events,Completion Rate (%),Avg Detection Delay (ms)\n';
+        stats.processBreakdown.forEach(p => {
+            csv += `${p.processInstance},${p.totalEvents},${p.completedEvents},${p.completionRate},${p.avgDetectionDelay}\n`;
+        });
+
+        return csv;
+    }
+
+    // Generate detailed traces CSV
+    generateTracesCSV(traces) {
+        if (!traces || traces.length === 0) return 'No traces available';
+
+        // Headers
+        let csv = 'Correlation ID,Process Instance,Entity,Status,';
+        csv += 'T1_emulator_sent,T2_worker_received,T3_engine_processed,T4_aggregator_received,T5_detection_complete,';
+        csv += 'Detection Delay (ms),Emulator→Worker (ms),Worker→Engine (ms),Engine→Aggregator (ms),Aggregator Processing (ms)\n';
+
+        // Data rows
+        traces.forEach(trace => {
+            const t = trace.timestamps;
+            const l = trace.processingLatencies || {};
+
+            csv += `${trace.correlationId},${trace.processInstance},${trace.entityName},${trace.status},`;
+            csv += `${t.T1_emulator_sent || ''},${t.T2_worker_received || ''},${t.T3_engine_processed || ''},`;
+            csv += `${t.T4_aggregator_received || ''},${t.T5_detection_complete || ''},`;
+            csv += `${trace.detectionDelay || ''},${l.emulator_to_worker || ''},${l.worker_to_engine || ''},`;
+            csv += `${l.engine_to_aggregator || ''},${l.aggregator_processing || ''}\n`;
+        });
+
+        return csv;
+    }
+
+    // Add a proper cleanup method that exports data before clearing
+    cleanup() {
+        const exportPaths = this.exportToFile();
+        this.reset();
+        return exportPaths;
     }
 }
 
 // Create singleton instance
 const performanceTracker = new PerformanceTracker();
+
+// Add shutdown handler to auto-export data
+process.on('SIGINT', () => {
+    LOG.logSystem('INFO', 'Received shutdown signal, exporting performance data...', "PERF_TRACKER");
+    performanceTracker.exportToFile();
+    process.exit(0);
+});
 
 module.exports = performanceTracker;

@@ -1,6 +1,6 @@
 // dependencies
 var events = require('events');
-var LogManager = require('./logManager');
+var LOG = require('./LOG');
 
 // Import performance tracker - adjust path as needed for your structure
 let performanceTracker;
@@ -9,7 +9,7 @@ try {
 } catch (e) {
   // Fallback if performance tracker not available
   performanceTracker = null;
-  LogManager.logEvent('Performance tracker not available: ' + e.message);
+  LOG.logEvent.logSystem('WARNING', 'Performance tracker not available: ' + e.message, 'EVENT_MGR');
 }
 
 // generic event handling module
@@ -28,7 +28,7 @@ module.exports = {
           this.trackEmittedEvent(event, arg1, arg2);
         }
 
-        //LogManager.logEvent('EMIT event emitted - ' + event + ' - ' + arg1 + ' - ' + arg2);
+        //LOG.logEvent('EMIT event emitted - ' + event + ' - ' + arg1 + ' - ' + arg2);
         this.eventEmitter.emit(event, arg1, arg2);
       },
 
@@ -37,7 +37,7 @@ module.exports = {
         // Wrap the listener to add performance tracking
         const wrappedListener = this.wrapListenerForTracking(source, eventName, listener);
         
-        //LogManager.logEvent('ON listener registered - ' + source + ' - ' + eventName);
+        //LOG.logEvent('ON listener registered - ' + source + ' - ' + eventName);
         this.eventEmitter.on(eventName, wrappedListener);
         this.events.push(eventName);
       },
@@ -47,7 +47,7 @@ module.exports = {
         for (var key in this.events) {
           //remove all listeners
           this.eventEmitter.removeAllListeners(this.events[key]);
-          //LogManager.logEvent('REMOVE listener removed - ' + this.events[key]);
+          //LOG.logEvent('REMOVE listener removed - ' + this.events[key]);
         }
       },
 
@@ -97,10 +97,10 @@ module.exports = {
               }
             );
             
-            LogManager.logEvent(`Performance tracked - Engine ${this.id} processed ${correlationId}`);
+            LOG.logEvent(`Performance tracked - Engine ${this.id} processed ${correlationId}`);
           }
         } catch (e) {
-          LogManager.logEvent('Error in performance tracking: ' + e.message);
+          LOG.logEvent('Error in performance tracking: ' + e.message);
         }
       },
 
@@ -127,7 +127,7 @@ module.exports = {
               }
             }
           } catch (e) {
-            LogManager.logEvent('Error in listener tracking: ' + e.message);
+            LOG.logEvent('Error in listener tracking: ' + e.message);
           }
           
           // Call the original listener
