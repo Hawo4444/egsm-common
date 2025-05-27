@@ -385,6 +385,70 @@ async function closeOngoingProcessInstance(processtype, instanceid, endtime, out
     await DYNAMO.updateItem('PROCESS_INSTANCE', pk, sk, attributes)
 }
 
+async function storeProcessDeviations(processtype, instanceid, perspective, deviations) {
+    // Store deviations while preserving their full structure
+    const deviationsForStorage = deviations.map(deviation => {
+        const baseDeviation = {
+            type: deviation.type,
+            block_a: deviation.block_a,
+            block_b: deviation.block_b,
+            parentIndex: deviation.parentIndex,
+            iterationIndex: deviation.iterationIndex
+        };
+
+        if (deviation.type === 'MULTI_EXECUTION') {
+            baseDeviation.executionCount = deviation.executionCount;
+        }
+
+        return baseDeviation;
+    });
+
+    const pk = {
+        name: 'PROCESS_TYPE',
+        value: processtype
+    };
+    const sk = {
+        name: 'INSTANCE_PERSPECTIVE',
+        value: `${instanceid}#${perspective}`
+    };
+
+    const attributes = [
+        { name: 'DEVIATIONS', type: 'S', value: JSON.stringify(deviationsForStorage) },
+        { name: 'TIMESTAMP', type: 'N', value: (new Date().getTime() / 1000).toString() }
+    ];
+
+    return DYNAMO.writeItem('PROCESS_DEVIATIONS', pk, sk, attributes);
+}
+
+async function readAllProcessTypeDeviations(processtype, perspective) {
+    const keyExpression = 'PROCESS_TYPE = :pt';
+    const expressionAttributeValues = {
+        ':pt': { S: processtype }
+    };
+
+    let filterExpression;
+    if (perspective) {
+        filterExpression = 'contains(INSTANCE_PERSPECTIVE, :persp)';
+        expressionAttributeValues[':persp'] = { S: `#${perspective}` };
+    }
+
+    const result = await DYNAMO.query('PROCESS_DEVIATIONS', keyExpression,
+        expressionAttributeValues, filterExpression);
+
+    if (!result || result.length === 0) {
+        return [];
+    }
+
+    const deviationsMap = {};
+    for (const item of result) {
+        const instancePerspective = item.INSTANCE_PERSPECTIVE.S;
+        const instanceId = instancePerspective.split('#')[0];
+        deviationsMap[instanceId] = JSON.parse(item.DEVIATIONS.S);
+    }
+
+    return deviationsMap;
+}
+
 //STAKEHOLDER operations
 async function writeNewStakeholder(stakeholderid, notificationdetails) {
     var pk = { name: 'STAKEHOLDER_ID', value: stakeholderid }
@@ -483,7 +547,7 @@ module.exports = {
     increaseProcessTypeInstanceCounter: increaseProcessTypeInstanceCounter,
     increaseProcessTypeBpmnJobCounter: increaseProcessTypeBpmnJobCounter,
     increaseProcessTypeStatisticsCounter: increaseProcessTypeStatisticsCounters,
-    readAllProcessTypes:readAllProcessTypes,
+    readAllProcessTypes: readAllProcessTypes,
 
     //[PROCESS_INSTANCE] operations
     writeNewProcessInstance: writeNewProcessInstance,

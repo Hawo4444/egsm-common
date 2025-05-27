@@ -1,0 +1,8 @@
+{
+  "name": "egsm-common",
+  "version": "1.0.0",
+  "description": "Common utilities for eGSM platform",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0"
+  }
+}
