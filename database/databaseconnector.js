@@ -333,7 +333,7 @@ async function readAllProcessTypes() {
     return final
 }
 
-//PROCESS_INSTANCE-related operations
+//PROCESS_INSTANCE related operations
 
 //Function to create a new process instance
 //Process instance status is automatically set to 'ongoing'
@@ -385,6 +385,7 @@ async function closeOngoingProcessInstance(processtype, instanceid, endtime, out
     await DYNAMO.updateItem('PROCESS_INSTANCE', pk, sk, attributes)
 }
 
+//PROCESS_DEVIATIONS related operations
 async function storeProcessDeviations(processtype, instanceid, perspective, deviations) {
     const deviationsForStorage = deviations.map(deviation => {
         const baseDeviation = {

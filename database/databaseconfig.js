@@ -14,6 +14,7 @@ var tables = [
     { name: 'PROCESS_TYPE', pk: 'PROCESS_TYPE_NAME', sk: undefined, },
     { name: 'STAKEHOLDERS', pk: 'STAKEHOLDER_ID', sk: undefined },
     { name: 'PROCESS_INSTANCE', pk: 'PROCESS_TYPE_NAME', sk: 'INSTANCE_ID' },
+    { name: 'PROCESS_DEVIATIONS', pk: 'PROCESS_TYPE_PERSPECTIVE', sk: 'INSTANCE_ID' },
     { name: 'PROCESS_GROUP_DEFINITION', pk: 'NAME', sk: undefined },
     { name: 'STAGE_EVENT', pk: 'PROCESS_NAME', sk: 'EVENT_ID' },
 ]
