@@ -578,6 +578,7 @@ module.exports = {
     closeOngoingProcessInstance: closeOngoingProcessInstance,
     storeProcessDeviations: storeProcessDeviations,
     readAllProcessTypeDeviations: readAllProcessTypeDeviations,
+    readAllProcessTypeDeviations: readAllProcessTypeDeviations,
 
     //[STAKEHOLDERS] operations
     writeNewStakeholder: writeNewStakeholder,
