@@ -386,7 +386,6 @@ async function closeOngoingProcessInstance(processtype, instanceid, endtime, out
 }
 
 async function storeProcessDeviations(processtype, instanceid, perspective, deviations) {
-    // Store deviations while preserving their full structure
     const deviationsForStorage = deviations.map(deviation => {
         const baseDeviation = {
             type: deviation.type,
@@ -409,7 +408,8 @@ async function storeProcessDeviations(processtype, instanceid, perspective, devi
     };
     const sk = {
         name: 'INSTANCE_PERSPECTIVE',
-        value: `${instanceid}#${perspective}`
+        //value: `${instanceid}#${perspective}`
+        value: perspective
     };
 
     const attributes = [
@@ -420,29 +420,23 @@ async function storeProcessDeviations(processtype, instanceid, perspective, devi
     return DYNAMO.writeItem('PROCESS_DEVIATIONS', pk, sk, attributes);
 }
 
-async function readAllProcessTypeDeviations(processtype, perspective) {
+async function readAllProcessTypeDeviations(processtype) {
     const keyExpression = 'PROCESS_TYPE = :pt';
     const expressionAttributeValues = {
         ':pt': { S: processtype }
     };
 
-    let filterExpression;
-    if (perspective) {
-        filterExpression = 'contains(INSTANCE_PERSPECTIVE, :persp)';
-        expressionAttributeValues[':persp'] = { S: `#${perspective}` };
-    }
-
     const result = await DYNAMO.query('PROCESS_DEVIATIONS', keyExpression,
         expressionAttributeValues, filterExpression);
 
     if (!result || result.length === 0) {
-        return [];
+        return {};
     }
 
     const deviationsMap = {};
     for (const item of result) {
         const instancePerspective = item.INSTANCE_PERSPECTIVE.S;
-        const instanceId = instancePerspective.split('#')[0];
+        //const instanceId = instancePerspective.split('#')[0];
         deviationsMap[instanceId] = JSON.parse(item.DEVIATIONS.S);
     }
 
