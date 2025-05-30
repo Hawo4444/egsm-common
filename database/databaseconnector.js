@@ -403,16 +403,17 @@ async function storeProcessDeviations(processtype, instanceid, perspective, devi
     });
 
     const pk = {
-        name: 'PROCESS_TYPE',
-        value: processtype
+        name: 'PROCESS_TYPE_PERSPECTIVE',
+        value: `${processtype}#${perspective}`
     };
     const sk = {
-        name: 'INSTANCE_PERSPECTIVE',
-        //value: `${instanceid}#${perspective}`
-        value: perspective
+        name: 'INSTANCE_ID',
+        value: instanceid
     };
 
     const attributes = [
+        { name: 'PROCESS_TYPE', type: 'S', value: processtype },
+        { name: 'PERSPECTIVE', type: 'S', value: perspective },
         { name: 'DEVIATIONS', type: 'S', value: JSON.stringify(deviationsForStorage) },
         { name: 'TIMESTAMP', type: 'N', value: (new Date().getTime() / 1000).toString() }
     ];
@@ -420,27 +421,26 @@ async function storeProcessDeviations(processtype, instanceid, perspective, devi
     return DYNAMO.writeItem('PROCESS_DEVIATIONS', pk, sk, attributes);
 }
 
-async function readAllProcessTypeDeviations(processtype) {
-    const keyExpression = 'PROCESS_TYPE = :pt';
+async function readAllProcessTypeDeviations(processtype, perspective) {
+    const keyExpression = 'PROCESS_TYPE_PERSPECTIVE = :ptperspective';
     const expressionAttributeValues = {
-        ':pt': { S: processtype }
+        ':ptperspective': { S: `${processtype}#${perspective}` }
     };
 
     const result = await DYNAMO.query('PROCESS_DEVIATIONS', keyExpression,
-        expressionAttributeValues, filterExpression);
+        expressionAttributeValues);
 
     if (!result || result.length === 0) {
-        return {};
+        return [];
     }
 
-    const deviationsMap = {};
-    for (const item of result) {
-        const instancePerspective = item.INSTANCE_PERSPECTIVE.S;
-        //const instanceId = instancePerspective.split('#')[0];
-        deviationsMap[instanceId] = JSON.parse(item.DEVIATIONS.S);
-    }
-
-    return deviationsMap;
+    return result.map(item => ({
+        instanceId: item.INSTANCE_ID.S,
+        processType: item.PROCESS_TYPE.S,
+        perspective: item.PERSPECTIVE.S,
+        deviations: JSON.parse(item.DEVIATIONS.S),
+        timestamp: Number(item.TIMESTAMP.N)
+    }));
 }
 
 //STAKEHOLDER operations
