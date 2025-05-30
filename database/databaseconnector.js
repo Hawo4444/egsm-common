@@ -386,8 +386,11 @@ async function closeOngoingProcessInstance(processtype, instanceid, endtime, out
 }
 
 async function readAllProcessInstances(processtype) {
-    var pk = { name: 'PROCESS_TYPE_NAME', value: processtype }
-    var result = await DYNAMO.queryByPrimaryKey('PROCESS_INSTANCE', pk)
+    var keyexpression = 'PROCESS_TYPE_NAME = :processtype'
+    var expressionattributevalues = {
+        ':processtype': { S: processtype }
+    }
+    var result = await DYNAMO.query('PROCESS_INSTANCE', keyexpression, expressionattributevalues)
 
     if (!result || result.length == 0) {
         return []
@@ -450,8 +453,11 @@ async function storeProcessDeviations(processtype, instanceid, perspective, devi
 }
 
 async function readAllProcessTypeDeviations(processtype, perspective) {
-    var pk = { name: 'PROCESS_TYPE_PERSPECTIVE', value: `${processtype}#${perspective}` }
-    var result = await DYNAMO.queryByPrimaryKey('PROCESS_DEVIATIONS', pk)
+    var keyexpression = 'PROCESS_TYPE_PERSPECTIVE = :ptperspective'
+    var expressionattributevalues = {
+        ':ptperspective': { S: `${processtype}#${perspective}` }
+    }
+    var result = await DYNAMO.query('PROCESS_DEVIATIONS', keyexpression, expressionattributevalues)
 
     if (!result || result.length == 0) {
         return {}
