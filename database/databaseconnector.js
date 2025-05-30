@@ -385,6 +385,33 @@ async function closeOngoingProcessInstance(processtype, instanceid, endtime, out
     await DYNAMO.updateItem('PROCESS_INSTANCE', pk, sk, attributes)
 }
 
+async function readAllProcessInstances(processtype) {
+    var pk = { name: 'PROCESS_TYPE_NAME', value: processtype }
+    var result = await DYNAMO.queryByPrimaryKey('PROCESS_INSTANCE', pk)
+
+    if (!result || result.length == 0) {
+        return []
+    }
+
+    var instances = []
+    for (var i = 0; i < result.length; i++) {
+        var instanceobj = new ProcessInstance(
+            result[i]['INSTANCE_ID']['S'],
+            result[i]['PROCESS_TYPE_NAME']['S'],
+            result[i]['STATUS']['S'],
+            result[i]['STARTING_TIME'] ? parseInt(result[i]['STARTING_TIME']['N']) : null,
+            result[i]['ENDING_TIME'] ? parseInt(result[i]['ENDING_TIME']['N']) : null,
+            result[i]['STAKEHOLDERS'] ? result[i]['STAKEHOLDERS']['SS'] : [],
+            result[i]['HOST'] ? result[i]['HOST']['S'] : 'localhost',
+            result[i]['PORT'] ? parseInt(result[i]['PORT']['N']) : 1883,
+            result[i]['OUTCOME'] ? result[i]['OUTCOME']['S'] : 'NA'
+        )
+        instances.push(instanceobj)
+    }
+
+    return instances
+}
+
 //PROCESS_DEVIATIONS related operations
 async function storeProcessDeviations(processtype, instanceid, perspective, deviations) {
     const deviationsForStorage = deviations.map(deviation => {
@@ -423,25 +450,26 @@ async function storeProcessDeviations(processtype, instanceid, perspective, devi
 }
 
 async function readAllProcessTypeDeviations(processtype, perspective) {
-    const keyExpression = 'PROCESS_TYPE_PERSPECTIVE = :ptperspective';
-    const expressionAttributeValues = {
-        ':ptperspective': { S: `${processtype}#${perspective}` }
-    };
+    var pk = { name: 'PROCESS_TYPE_PERSPECTIVE', value: `${processtype}#${perspective}` }
+    var result = await DYNAMO.queryByPrimaryKey('PROCESS_DEVIATIONS', pk)
 
-    const result = await DYNAMO.query('PROCESS_DEVIATIONS', keyExpression,
-        expressionAttributeValues);
-
-    if (!result || result.length === 0) {
-        return [];
+    if (!result || result.length == 0) {
+        return {}
     }
 
-    return result.map(item => ({
-        instanceId: item.INSTANCE_ID.S,
-        processType: item.PROCESS_TYPE.S,
-        perspective: item.PERSPECTIVE.S,
-        deviations: JSON.parse(item.DEVIATIONS.S),
-        timestamp: Number(item.TIMESTAMP.N)
-    }));
+    var deviations = {}
+    for (var i = 0; i < result.length; i++) {
+        var instanceId = result[i]['INSTANCE_ID']['S']
+        deviations[instanceId] = {
+            instanceId: instanceId,
+            processType: result[i]['PROCESS_TYPE']['S'],
+            perspective: result[i]['PERSPECTIVE']['S'],
+            deviations: JSON.parse(result[i]['DEVIATIONS']['S']),
+            timestamp: parseInt(result[i]['TIMESTAMP']['N'])
+        }
+    }
+
+    return deviations
 }
 
 //STAKEHOLDER operations
