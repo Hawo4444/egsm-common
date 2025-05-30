@@ -576,8 +576,10 @@ module.exports = {
     writeNewProcessInstance: writeNewProcessInstance,
     readProcessInstance: readProcessInstance,
     closeOngoingProcessInstance: closeOngoingProcessInstance,
+    readAllProcessInstances: readAllProcessInstances,
+
+    //[PROCESS_DEVIATIONS] operations
     storeProcessDeviations: storeProcessDeviations,
-    readAllProcessTypeDeviations: readAllProcessTypeDeviations,
     readAllProcessTypeDeviations: readAllProcessTypeDeviations,
 
     //[STAKEHOLDERS] operations
