@@ -82,7 +82,7 @@ module.exports = {
 
             const mqttclient = BROKERS.get([hostname, port].join(":")).mqttclient;
 
-            mqttclient.subscribe(topic, { noLocal: nl }, (err, granted) => {
+            mqttclient.subscribe(topic, { nl: nl }, (err, granted) => {
                 if (err) {
                     LOG.logWorker('ERROR', `Subscribe failed for topic ${topic}: ${err}`, module.id);
                     return reject(err);
