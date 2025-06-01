@@ -67,24 +67,53 @@ module.exports = {
         BROKERS.get([hostname, port].join(":")).mqttclient.publish(topic, message);
     },
 
-    subscribeTopic: function (hostname, port, topic) {
-        LOG.logWorker('DEBUG', `Subscribing to: [${hostname}]:[${port}] -> [${topic}]`, module.id)
-        if (ON_RECEIVED.length < 1) {
-            LOG.logWorker('WARNING', `ON_RECEIVED function not defined yet, use init() function!`, module.id)
-        }
-        if (!BROKERS.has([hostname, port].join(":"))) {
-            LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id)
-            return
-        }
-        BROKERS.get([hostname, port].join(":")).mqttclient.subscribe(topic, { nl: true });
+    subscribeTopic: function (hostname, port, topic, nl = true) {
+        return new Promise((resolve, reject) => {
+            LOG.logWorker('DEBUG', `Subscribing to: [${hostname}]:[${port}] -> [${topic}]`, module.id);
+
+            if (ON_RECEIVED.length < 1) {
+                LOG.logWorker('WARNING', `ON_RECEIVED function not defined yet, use init() function!`, module.id);
+            }
+
+            if (!BROKERS.has([hostname, port].join(":"))) {
+                LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id);
+                return reject(new Error(`Broker not defined: ${hostname}:${port}`));
+            }
+
+            const mqttclient = BROKERS.get([hostname, port].join(":")).mqttclient;
+
+            mqttclient.subscribe(topic, { noLocal: nl }, (err, granted) => {
+                if (err) {
+                    LOG.logWorker('ERROR', `Subscribe failed for topic ${topic}: ${err}`, module.id);
+                    return reject(err);
+                } else {
+                    LOG.logWorker('DEBUG', `Subscribed to ${topic} with granted: ${JSON.stringify(granted)}`, module.id);
+                    return resolve(granted);
+                }
+            });
+        });
     },
 
     unsubscribeTopic: function (hostname, port, topic) {
-        LOG.logWorker('DEBUG', `Unsubscribing from: [${hostname}]:[${port}] -> [${topic}]`, module.id)
-        if (!BROKERS.has([hostname, port].join(":"))) {
-            LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id)
-            return
-        }
-        BROKERS.get([hostname, port].join(":")).mqttclient.unsubscribe(topic)
+        return new Promise((resolve, reject) => {
+            LOG.logWorker('DEBUG', `Unsubscribing from: [${hostname}]:[${port}] -> [${topic}]`, module.id);
+
+            if (!BROKERS.has([hostname, port].join(":"))) {
+                LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id);
+                return reject(new Error(`Broker not defined: ${hostname}:${port}`));
+            }
+
+            const mqttclient = BROKERS.get([hostname, port].join(":")).mqttclient;
+
+            mqttclient.unsubscribe(topic, (err) => {
+                if (err) {
+                    LOG.logWorker('ERROR', `Unsubscribe failed for topic ${topic}: ${err}`, module.id);
+                    return reject(err);
+                } else {
+                    LOG.logWorker('DEBUG', `Unsubscribed from ${topic}`, module.id);
+                    return resolve();
+                }
+            });
+        });
     },
 };
