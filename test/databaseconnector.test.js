@@ -424,19 +424,19 @@ test('[updateProcessTypeStatistics][WRITE AND UPDATE AND READ]', async () => {
     var processType = new ProcessType('type-1', ['Stakeholder-1'], 'Desc-1', 'BPMN', [perspective1, perspective2])
     await DB.writeNewProcessType(processType)
 
-    var metrics1 = [{ name: 'egsm-2', state: 'skipped', status: 'skipped', compliance: 'skipped' }]
+    var metrics1 = [{ name: 'egsm-2', state: 'opened', status: 'regular', compliance: 'skipped' }]
     await DB.increaseProcessTypeStatisticsCounter('type-1', 'pers-1', metrics1)
     var reading1 = await DB.readProcessType('type-1')
-    expect(reading1.statistics['pers-1']['egsm-2']['skipped']).toEqual(3) // 3 because it increments state, status, and compliance
+    expect(reading1.statistics['pers-1']['egsm-2']['skipped']).toEqual(1)
 
     await DB.increaseProcessTypeStatisticsCounter('type-1', 'pers-1', metrics1)
     var reading2 = await DB.readProcessType('type-1')
-    expect(reading2.statistics['pers-1']['egsm-2']['skipped']).toEqual(6)
+    expect(reading2.statistics['pers-1']['egsm-2']['skipped']).toEqual(2)
 
-    var metrics2 = [{ name: 'egsm-1', state: 'outOfOrder', status: 'outOfOrder', compliance: 'outOfOrder' }]
+    var metrics2 = [{ name: 'egsm-1', state: 'opened', status: 'regular', compliance: 'outOfOrder' }]
     await DB.increaseProcessTypeStatisticsCounter('type-1', 'pers-1', metrics2)
     var reading3 = await DB.readProcessType('type-1')
-    expect(reading3.statistics['pers-1']['egsm-1']['outOfOrder']).toEqual(3)
+    expect(reading3.statistics['pers-1']['egsm-1']['outOfOrder']).toEqual(1)
 })
 
 test('[writeNewProcessInstance][readProcessInstance][WRITE AND READ]', async () => {
