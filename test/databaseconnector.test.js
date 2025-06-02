@@ -13,18 +13,19 @@ async function initTables() {
     promises.push(DYNAMO.initTable('PROCESS_INSTANCE', 'PROCESS_TYPE_NAME', 'INSTANCE_ID'))
     promises.push(DYNAMO.initTable('PROCESS_GROUP_DEFINITION', 'NAME', undefined))
     promises.push(DYNAMO.initTable('STAKEHOLDERS', 'STAKEHOLDER_ID', undefined))
-
     promises.push(DYNAMO.initTable('ARTIFACT_DEFINITION', 'ARTIFACT_TYPE', 'ARTIFACT_ID'))
     promises.push(DYNAMO.initTable('ARTIFACT_USAGE', 'ARTIFACT_NAME', 'CASE_ID'))
     promises.push(DYNAMO.initTable('ARTIFACT_EVENT', 'ARTIFACT_NAME', 'EVENT_ID', { indexname: 'PROCESSED_INDEX', pk: { name: 'ENTRY_PROCESSED', type: 'N' } }))
     promises.push(DYNAMO.initTable('STAGE_EVENT', 'PROCESS_NAME', 'EVENT_ID'))
+    promises.push(DYNAMO.initTable('PROCESS_DEVIATIONS', 'PROCESS_TYPE_PERSPECTIVE', 'INSTANCE_ID'))
     await Promise.all(promises)
 }
 
 async function deleteTables() {
     var TABLES = [
         'PROCESS_TYPE', 'PROCESS_INSTANCE', 'PROCESS_GROUP_DEFINITION', 'STAKEHOLDERS',
-        'ARTIFACT_EVENT', 'ARTIFACT_USAGE', 'ARTIFACT_DEFINITION', 'STAGE_EVENT'
+        'ARTIFACT_EVENT', 'ARTIFACT_USAGE', 'ARTIFACT_DEFINITION', 'STAGE_EVENT',
+        'PROCESS_DEVIATIONS'
     ]
     var promises = []
     TABLES.forEach(element => {
@@ -558,4 +559,70 @@ test('[writeStageEvent][WRITE AND READ]', async () => {
         }
     }
     expect(data).toEqual(expected)
+})
+
+test('[readAllProcessInstances][WRITE AND READ]', async () => {
+    await DB.writeNewProcessInstance('dummy1', 'instance-1', ['stakeholder1'], 1000, 'localhost', 1883)
+    await DB.writeNewProcessInstance('dummy1', 'instance-2', ['stakeholder2'], 1100, 'localhost', 1883)
+    await DB.writeNewProcessInstance('dummy2', 'instance-1', ['stakeholder3'], 1200, 'localhost', 1883)
+    
+    const instances = await DB.readAllProcessInstances('dummy1')
+    expect(instances.length).toEqual(2)
+    expect(instances[0].process_type).toEqual('dummy1')
+    expect(instances[1].process_type).toEqual('dummy1')
+    
+    const emptyInstances = await DB.readAllProcessInstances('nonexistent')
+    expect(emptyInstances).toEqual([])
+})
+
+test('[readAllProcessTypes][WRITE AND READ]', async () => {
+    var perspective1 = new Perspective('pers-1', 'bpmn', 'egsm', 'info', 'bindings', ['egsm-1'])
+    var processType1 = new ProcessType('type-1', ['Stakeholder-1'], 'Desc-1', 'BPMN', [perspective1])
+    var processType2 = new ProcessType('type-2', ['Stakeholder-2'], 'Desc-2', 'BPMN', [perspective1])
+    
+    await DB.writeNewProcessType(processType1)
+    await DB.writeNewProcessType(processType2)
+    
+    const allTypes = await DB.readAllProcessTypes()
+    expect(allTypes.length).toEqual(2)
+    expect(allTypes).toContainEqual({
+        process_type_name: 'type-1',
+        description: 'Desc-1'
+    })
+    expect(allTypes).toContainEqual({
+        process_type_name: 'type-2', 
+        description: 'Desc-2'
+    })
+})
+
+test('[storeProcessDeviations][readAllProcessTypeDeviations][WRITE AND READ]', async () => {
+    const deviations = [
+        {
+            type: 'OVERLAP',
+            block_a: 'stage1',
+            block_b: 'stage2',
+            parentIndex: 0,
+            iterationIndex: 0
+        },
+        {
+            type: 'MULTI_EXECUTION',
+            block_a: 'stage3',
+            block_b: null,
+            parentIndex: 1,
+            iterationIndex: 0,
+            executionCount: 3
+        }
+    ]
+    
+    await DB.storeProcessDeviations('processType1', 'instance1', 'perspective1', deviations)
+    await DB.storeProcessDeviations('processType1', 'instance2', 'perspective1', [deviations[0]])
+    
+    const allDeviations = await DB.readAllProcessTypeDeviations('processType1', 'perspective1')
+    expect(Object.keys(allDeviations).length).toEqual(2)
+    expect(allDeviations['instance1'].deviations).toEqual(deviations)
+    expect(allDeviations['instance2'].deviations).toEqual([deviations[0]])
+    
+    // Test empty result
+    const emptyDeviations = await DB.readAllProcessTypeDeviations('nonexistent', 'perspective1')
+    expect(emptyDeviations).toEqual({})
 })
