@@ -399,11 +399,11 @@ async function readAllProcessInstances(processtype) {
     var instances = []
     for (var i = 0; i < result.length; i++) {
         var instanceobj = new ProcessInstance(
-            result[i]['INSTANCE_ID']['S'],
             result[i]['PROCESS_TYPE_NAME']['S'],
+            result[i]['INSTANCE_ID']['S'],
+            result[i]['STARTING_TIME'] ? parseInt(result[i]['STARTING_TIME']['N']) : -1,
+            result[i]['ENDING_TIME'] ? parseInt(result[i]['ENDING_TIME']['N']) : -1,
             result[i]['STATUS']['S'],
-            result[i]['STARTING_TIME'] ? parseInt(result[i]['STARTING_TIME']['N']) : null,
-            result[i]['ENDING_TIME'] ? parseInt(result[i]['ENDING_TIME']['N']) : null,
             result[i]['STAKEHOLDERS'] ? result[i]['STAKEHOLDERS']['SS'] : [],
             result[i]['HOST'] ? result[i]['HOST']['S'] : 'localhost',
             result[i]['PORT'] ? parseInt(result[i]['PORT']['N']) : 1883,
