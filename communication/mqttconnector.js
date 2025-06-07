@@ -64,7 +64,7 @@ module.exports = {
             LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id)
             return
         }
-        BROKERS.get([hostname, port].join(":")).mqttclient.publish(topic, message);
+        BROKERS.get([hostname, port].join(":")).mqttclient.publish(topic, message, { qos: 1 });
     },
 
     subscribeTopic: function (hostname, port, topic, nl = true) {
