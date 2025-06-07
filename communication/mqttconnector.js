@@ -58,7 +58,7 @@ module.exports = {
         }
     },
 
-    publishTopic: function (hostname, port, topic, message, options) {
+    publishTopic: function (hostname, port, topic, message, options = {}) {
         LOG.logWorker('DEBUG', `Publishing to: [${hostname}]:[${port}] -> [${topic}] :: [${message}]`, module.id)
         if (!BROKERS.has([hostname, port].join(":"))) {
             LOG.logWorker('WARNING', `Specified Broker is not defined: [${hostname}]:[${port}]`, module.id)
