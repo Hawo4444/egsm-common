@@ -65,7 +65,7 @@ module.exports = {
             return
         }
 
-        const publishOptions = { qos: options.qos !== undefined ? options.qos : 0 };
+        const publishOptions = { qos: options?.qos ?? 0 };
         BROKERS.get([hostname, port].join(":")).mqttclient.publish(topic, message, publishOptions);
     },
 
